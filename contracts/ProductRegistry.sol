@@ -97,8 +97,8 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         require(p.currentOwner == msg.sender, "Not owner");
         require(to != address(0), "Invalid address");
         require(
-            retailerRegistry.isAuthorizedRetailer(to, msg.sender) || hasRole(MANUFACTURER_ROLE, to),
-            "Receiver not authorized"
+            retailerRegistry.isAuthorizedRetailer(p.manufacturer, to) || hasRole(MANUFACTURER_ROLE, to),
+            "Unauthorized retailer"
         );
 
         p.currentOwner = to;
@@ -200,6 +200,35 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
 
     function unpause() external onlyRole(REGISTRY_ADMIN_ROLE) {
         _unpause();
+    }
+
+    /// @notice Check if a product is registered
+    function isRegistered(bytes32 productId) external view returns (bool) {
+        return products[productId].exists;
+    }
+
+    /// @notice Update product status (for tests and manufacturer use)
+    function updateStatus(bytes32 productId, ProductStatus newStatus) external whenNotPaused {
+        Product storage p = products[productId];
+        require(p.exists, "Not found");
+        require(p.currentOwner == msg.sender || hasRole(MANUFACTURER_ROLE, msg.sender), "Not authorized");
+        require(isValidTransition(p.status, newStatus), "Invalid transition");
+
+        p.status = newStatus;
+        emit ProductStatusChanged(productId, newStatus);
+    }
+
+    /// @notice Update product metadata (manufacturer only)
+    function updateMetadata(bytes32 productId, string calldata newMetadataURI) 
+        external 
+        whenNotPaused 
+    {
+        Product storage p = products[productId];
+        require(p.exists, "Not found");
+        require(p.manufacturer == msg.sender, "Not manufacturer");
+
+        p.metadataURI = newMetadataURI;
+        emit MetadataUpdated(productId, newMetadataURI);
     }
 
     // helper functions

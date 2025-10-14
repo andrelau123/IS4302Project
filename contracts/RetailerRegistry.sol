@@ -37,7 +37,7 @@ contract RetailerRegistry is AccessControl, Pausable {
     function registerRetailer(
         address retailerAddress,
         string calldata name
-    ) external onlyRole(BRAND_MANAGER_ROLE) {
+    ) external onlyRole(BRAND_MANAGER_ROLE) whenNotPaused {
         require(!retailers[retailerAddress].isAuthorized, "Already registered");
 
         retailers[retailerAddress] = Retailer({
@@ -56,7 +56,7 @@ contract RetailerRegistry is AccessControl, Pausable {
     function authorizeRetailerForBrand(
         address brand,
         address retailer
-    ) external onlyRole(BRAND_MANAGER_ROLE) {
+    ) external onlyRole(BRAND_MANAGER_ROLE) whenNotPaused {
         require(retailers[retailer].isAuthorized, "Retailer not registered");
         brandAuthorizations[brand][retailer] = true;
         emit RetailerAuthorized(brand, retailer);
@@ -65,7 +65,7 @@ contract RetailerRegistry is AccessControl, Pausable {
     function deauthorizeRetailerForBrand(
         address brand,
         address retailer
-    ) external onlyRole(BRAND_MANAGER_ROLE) {
+    ) external onlyRole(BRAND_MANAGER_ROLE) whenNotPaused {
         brandAuthorizations[brand][retailer] = false;
         emit RetailerDeauthorized(brand, retailer);
     }
@@ -73,7 +73,7 @@ contract RetailerRegistry is AccessControl, Pausable {
     function updateReputation(
         address retailer,
         bool success
-    ) external onlyRole(BRAND_MANAGER_ROLE) {
+    ) external onlyRole(BRAND_MANAGER_ROLE) whenNotPaused {
         Retailer storage r = retailers[retailer];
         require(r.isAuthorized, "Retailer not registered");
 
@@ -98,5 +98,13 @@ contract RetailerRegistry is AccessControl, Pausable {
         return
             retailers[retailer].isAuthorized &&
             brandAuthorizations[brand][retailer];
+    }
+
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
     }
 }

@@ -15,7 +15,7 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
 
     // Reasonable upper bound for governance-set APY (in %, e.g., 8 = 8%)
     uint256 public constant MAX_APY_PERCENT = 20;
---
+    
     uint256 public totalStaked;
     uint256 private _minted; // track total minted to enforce cap
 
@@ -59,7 +59,7 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
     //External: Staking
     /// @notice Stake your AUTH to earn rewards.
     function stake(uint256 amount) external whenNotPaused nonReentrant {
-        require(amount > 0, "AUTH: zero stake");
+        require(amount > 0, "Amount=0");
         require(balanceOf(msg.sender) >= amount, "AUTH: insufficient balance");
 
         // Settle any pending rewards first
@@ -84,7 +84,7 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         require(amount > 0, "AUTH: zero amount");
         StakeInfo storage s = stakes[msg.sender];
         require(s.amount >= amount, "AUTH: insufficient staked");
-        require(block.timestamp >= s.unlockAt, "AUTH: stake locked");
+        require(block.timestamp >= s.unlockAt, "Still locked");
 
         // Calculate reward before reducing principal
         uint256 reward = _pendingReward(msg.sender);
@@ -98,6 +98,29 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         _transfer(address(this), msg.sender, amount);
 
         // Pay reward if available (won't touch principal pool)
+        uint256 paid = _payRewardSafely(msg.sender, reward);
+        emit Unstaked(msg.sender, amount, paid);
+    }
+
+    /// @notice Unstake all principal and claim rewards (for tests)
+    function unstake() external whenNotPaused nonReentrant {
+        StakeInfo storage s = stakes[msg.sender];
+        uint256 amount = s.amount;
+        require(amount > 0, "No stake");
+        require(block.timestamp >= s.unlockAt, "Still locked");
+
+        // Calculate reward before reducing principal
+        uint256 reward = _pendingReward(msg.sender);
+
+        // Update accounting first
+        s.amount = 0;
+        totalStaked -= amount;
+        s.stakedAt = block.timestamp;
+
+        // Transfer principal back to user
+        _transfer(address(this), msg.sender, amount);
+
+        // Pay reward if available
         uint256 paid = _payRewardSafely(msg.sender, reward);
         emit Unstaked(msg.sender, amount, paid);
     }
@@ -121,7 +144,7 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
 
     /// @notice Update APY percentage (max capped for safety).
     function setRewardRate(uint256 newRatePercent) external onlyAdmin {
-        require(newRatePercent <= MAX_APY_PERCENT, "AUTH: APY too high");
+        require(newRatePercent <= MAX_APY_PERCENT, "Rate too high");
         rewardRate = newRatePercent;
         emit RewardRateUpdated(newRatePercent);
     }
@@ -133,10 +156,11 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         emit LockPeriodUpdated(newLockPeriod);
     }
 
-    /// @notice Mint additional rewards into the pool, respecting the cap.
+    /// @notice Transfer additional rewards into the pool from caller's balance.
     function topUpRewards(uint256 amount) external onlyRole(MINTER_ROLE) {
         require(amount > 0, "AUTH: zero top-up");
-        _mintCapped(address(this), amount);
+        require(balanceOf(msg.sender) >= amount, "AUTH: insufficient balance");
+        _transfer(msg.sender, address(this), amount);
         emit RewardsToppedUp(amount);
     }
 
@@ -188,10 +212,19 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         }
         return amt;
     }
--
+    
     function _mintCapped(address to, uint256 amount) internal {
         _minted += amount;
         require(_minted <= MAX_SUPPLY, "AUTH: cap exceeded");
         _mint(to, amount);
+    }
+
+    /// @notice Override _update to enforce pausable transfers
+    function _update(address from, address to, uint256 value) internal override {
+        // Allow minting (from == address(0)) and internal contract operations
+        if (from != address(0) && to != address(this)) {
+            require(!paused(), "Pausable: paused");
+        }
+        super._update(from, to, value);
     }
 }

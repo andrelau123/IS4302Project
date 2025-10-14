@@ -125,6 +125,7 @@ contract VerificationManager is AccessControl, ReentrancyGuard, Pausable {
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         require(hasRole(VERIFIER_ROLE, verifier), "Not a verifier");
+        require(verifiers[verifier].stakedAmount >= minStakeAmount, "Verifier not active");
         VerificationRequest storage r = requests[requestId];
         require(!r.completed && r.assignedVerifier == address(0), "Invalid request");
 
@@ -133,14 +134,14 @@ contract VerificationManager is AccessControl, ReentrancyGuard, Pausable {
     }
 
     /// @notice Called by a verifier to finalize a request.
-    function completeVerification(bytes32 requestId, bool result)
+    function completeVerification(bytes32 requestId, bool result, string calldata evidenceURI)
         external
         onlyRole(VERIFIER_ROLE)
         nonReentrant
     {
         VerificationRequest storage r = requests[requestId];
         require(!r.completed, "Already completed");
-        require(r.assignedVerifier == msg.sender, "Not assigned verifier");
+        require(r.assignedVerifier == msg.sender, "Not assigned");
         require(block.timestamp <= r.createdAt + verificationTimeout, "Request expired");
 
         r.completed = true;
@@ -168,17 +169,60 @@ contract VerificationManager is AccessControl, ReentrancyGuard, Pausable {
         return fee;
     }
 
-    /// @notice Admin can slash verifier stake for misconduct (linked to DisputeResolution outcomes).
-    function slashVerifier(address verifier, uint256 penalty)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    /// @notice Internal function to slash verifier stake
+    function slashVerifier(address verifier, uint256 penalty) internal {
         Verifier storage v = verifiers[verifier];
         require(v.stakedAmount >= penalty, "Insufficient stake");
 
         v.stakedAmount -= penalty;
         authToken.transfer(address(feeDistributor), penalty);
         emit VerifierSlashed(verifier, penalty);
+    }
+
+    /// @notice Admin can manually slash verifier stake for misconduct (linked to DisputeResolution outcomes).
+    function adminSlashVerifier(address verifier, uint256 penalty)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        slashVerifier(verifier, penalty);
+    }
+
+
+
+    /// @notice Handle timeout for unresponded verification requests
+    function handleTimeout(bytes32 requestId) external {
+        VerificationRequest storage request = requests[requestId];
+        require(!request.completed, "Already completed");
+        require(block.timestamp >= request.createdAt + verificationTimeout, "Not timed out");
+
+        // Slash the assigned verifier
+        if (request.assignedVerifier != address(0)) {
+            uint256 penalty = verifiers[request.assignedVerifier].stakedAmount / 10; // 10% penalty
+            slashVerifier(request.assignedVerifier, penalty);
+        }
+
+        // Mark as completed with failed result
+        request.completed = true;
+        request.result = false;
+
+        emit VerificationCompleted(requestId, false, request.assignedVerifier);
+    }
+
+    /// @notice Set verification fee range
+    function setVerificationFees(uint256 _minFee, uint256 _maxFee) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_minFee <= _maxFee, "Invalid fee range");
+        minVerificationFee = _minFee;
+        maxVerificationFee = _maxFee;
+    }
+
+    /// @notice Set minimum stake amount for verifiers
+    function setMinStakeAmount(uint256 _minStake) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        minStakeAmount = _minStake;
+    }
+
+    /// @notice Set verification timeout period
+    function setVerificationTimeout(uint256 _timeout) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        verificationTimeout = _timeout;
     }
 
     function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
