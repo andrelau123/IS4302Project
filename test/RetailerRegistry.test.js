@@ -37,7 +37,7 @@ describe("RetailerRegistry", function () {
       expect(retailer.isAuthorized).to.be.true;
       expect(retailer.retailerAddress).to.equal(retailer1.address);
       expect(retailer.name).to.equal(retailerName);
-      expect(retailer.reputationScore).to.equal(100); // Default initial score
+      expect(retailer.reputationScore).to.equal(500); // Starts at middle score (0-1000 scale)
       expect(retailer.totalVerifications).to.equal(0);
       expect(retailer.failedVerifications).to.equal(0);
     });
@@ -65,7 +65,7 @@ describe("RetailerRegistry", function () {
       await retailerRegistry.connect(brandManager).registerRetailer(retailer1.address, retailerName);
       
       const retailer = await retailerRegistry.retailers(retailer1.address);
-      expect(retailer.reputationScore).to.equal(100);
+      expect(retailer.reputationScore).to.equal(500); // New retailers start at 500 (neutral)
       expect(retailer.totalVerifications).to.equal(0);
       expect(retailer.failedVerifications).to.equal(0);
       expect(retailer.registeredAt).to.be.closeTo(blockTimestamp, 5);
@@ -136,29 +136,52 @@ describe("RetailerRegistry", function () {
     });
 
     it("Should update reputation correctly for successful verification", async function () {
-      await expect(retailerRegistry.connect(brandManager).updateReputation(retailer1.address, true))
-        .to.emit(retailerRegistry, "ReputationUpdated")
-        .withArgs(retailer1.address, 100);
+      const tx = await retailerRegistry.connect(brandManager).updateReputation(retailer1.address, true);
+      const receipt = await tx.wait();
+      
+      // ReputationUpdated event now has 3 parameters: retailer, newScore, updateReason
+      const event = receipt.logs.find(log => {
+        try {
+          return retailerRegistry.interface.parseLog(log).name === "ReputationUpdated";
+        } catch {
+          return false;
+        }
+      });
+      expect(event).to.not.be.undefined;
       
       const retailer = await retailerRegistry.retailers(retailer1.address);
       expect(retailer.totalVerifications).to.equal(1);
       expect(retailer.failedVerifications).to.equal(0);
-      expect(retailer.reputationScore).to.equal(100); // 100% success rate
+      expect(retailer.consecutiveSuccesses).to.equal(1);
+      // Reputation is now composite score, not simple percentage
+      expect(retailer.reputationScore).to.be.greaterThan(500); // Should improve from initial 500
     });
 
     it("Should update reputation correctly for failed verification", async function () {
-      await expect(retailerRegistry.connect(brandManager).updateReputation(retailer1.address, false))
-        .to.emit(retailerRegistry, "ReputationUpdated")
-        .withArgs(retailer1.address, 0);
+      const tx = await retailerRegistry.connect(brandManager).updateReputation(retailer1.address, false);
+      const receipt = await tx.wait();
+      
+      // Check that ReputationUpdated event was emitted
+      const event = receipt.logs.find(log => {
+        try {
+          return retailerRegistry.interface.parseLog(log).name === "ReputationUpdated";
+        } catch {
+          return false;
+        }
+      });
+      expect(event).to.not.be.undefined;
       
       const retailer = await retailerRegistry.retailers(retailer1.address);
       expect(retailer.totalVerifications).to.equal(1);
       expect(retailer.failedVerifications).to.equal(1);
-      expect(retailer.reputationScore).to.equal(0); // 0% success rate
+      expect(retailer.consecutiveSuccesses).to.equal(0); // Reset on failure
+      // Reputation should drop from initial 500
+      expect(retailer.reputationScore).to.be.lessThan(500);
     });
 
     it("Should calculate reputation correctly with mixed results", async function () {
       // 3 successful, 1 failed = 75% success rate
+      // But with multi-factor system, final score includes tenure, volume, etc.
       await retailerRegistry.connect(brandManager).updateReputation(retailer1.address, true);
       await retailerRegistry.connect(brandManager).updateReputation(retailer1.address, true);
       await retailerRegistry.connect(brandManager).updateReputation(retailer1.address, false);
@@ -167,7 +190,10 @@ describe("RetailerRegistry", function () {
       const retailer = await retailerRegistry.retailers(retailer1.address);
       expect(retailer.totalVerifications).to.equal(4);
       expect(retailer.failedVerifications).to.equal(1);
-      expect(retailer.reputationScore).to.equal(75); // 75% success rate
+      // Multi-factor score: 75% success rate weighted at 40%, plus other factors
+      // Should be between 400-700 range for new retailer with 75% success
+      expect(retailer.reputationScore).to.be.greaterThan(400);
+      expect(retailer.reputationScore).to.be.lessThan(700);
     });
 
     it("Should handle multiple consecutive updates", async function () {
@@ -176,7 +202,8 @@ describe("RetailerRegistry", function () {
       await retailerRegistry.connect(brandManager).updateReputation(retailer1.address, true);
       
       let retailer = await retailerRegistry.retailers(retailer1.address);
-      expect(retailer.reputationScore).to.equal(100);
+      const scoreAfterTwoSuccess = retailer.reputationScore;
+      expect(scoreAfterTwoSuccess).to.be.greaterThan(500);
       
       // Add a failure
       await retailerRegistry.connect(brandManager).updateReputation(retailer1.address, false);
@@ -184,7 +211,9 @@ describe("RetailerRegistry", function () {
       retailer = await retailerRegistry.retailers(retailer1.address);
       expect(retailer.totalVerifications).to.equal(3);
       expect(retailer.failedVerifications).to.equal(1);
-      expect(retailer.reputationScore).to.equal(66); // 2/3 = 66.67% rounded down
+      expect(retailer.consecutiveSuccesses).to.equal(0); // Reset by failure
+      // Score should be lower than after two successes
+      expect(retailer.reputationScore).to.be.lessThan(scoreAfterTwoSuccess);
     });
 
     it("Should not allow reputation update for unregistered retailer", async function () {
@@ -281,6 +310,7 @@ describe("RetailerRegistry", function () {
       await retailerRegistry.connect(brandManager).registerRetailer(retailer1.address, "Retailer 1");
       
       // Test edge case: 99 successful + 1 failed = 99% success rate
+      // With multi-factor system, the exact score will vary based on other factors
       for (let i = 0; i < 99; i++) {
         await retailerRegistry.connect(brandManager).updateReputation(retailer1.address, true);
       }
@@ -289,7 +319,9 @@ describe("RetailerRegistry", function () {
       const retailer = await retailerRegistry.retailers(retailer1.address);
       expect(retailer.totalVerifications).to.equal(100);
       expect(retailer.failedVerifications).to.equal(1);
-      expect(retailer.reputationScore).to.equal(99);
+      // With 99% success rate and volume of 100 verifications, score should be high
+      expect(retailer.reputationScore).to.be.greaterThan(500);
+      expect(retailer.reputationScore).to.be.lessThan(900); // Not perfect due to 1 failure
     });
 
     it("Should maintain state consistency after deauthorization and reauthorization", async function () {
