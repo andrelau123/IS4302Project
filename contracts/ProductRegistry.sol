@@ -8,17 +8,15 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
+/// @notice Core registry for authentic products with full lifecycle and verification tracking.
 contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
     bytes32 public constant MANUFACTURER_ROLE = keccak256("MANUFACTURER_ROLE");
     bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
+    bytes32 public constant REGISTRY_ADMIN_ROLE = keccak256("REGISTRY_ADMIN_ROLE");
 
-    enum ProductStatus {
-        Registered,
-        InTransit,
-        AtRetailer,
-        Sold,
-        Disputed
-    }
+    RetailerRegistry public immutable retailerRegistry;
+
+    enum ProductStatus { Registered, InTransit, AtRetailer, Sold, Disputed }
 
     struct Product {
         bytes32 productId;
@@ -26,7 +24,7 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         address currentOwner;
         ProductStatus status;
         uint256 registeredAt;
-        string metadataURI; // IPFS hash
+        string metadataURI; // IPFS CID or HTTPS link
         bool exists;
     }
 
@@ -34,48 +32,34 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         address from;
         address to;
         uint256 timestamp;
-        string location;
-        bytes32 verificationHash;
+        string location; // physical or logistical checkpoint
+        bytes32 verificationHash; // proof from VerificationManager
     }
 
     mapping(bytes32 => Product) public products;
-    mapping(bytes32 => TransferEvent[]) public productHistory;
-    mapping(bytes32 => mapping(address => bool)) public verifiedTransfers;
+    mapping(bytes32 => TransferEvent[]) private productHistory;
 
-    RetailerRegistry public retailerRegistry;
+    event ProductRegistered(bytes32 indexed productId, address indexed manufacturer, string metadataURI);
+    event ProductTransferred(bytes32 indexed productId, address indexed from, address indexed to, uint256 timestamp);
+    event ProductStatusChanged(bytes32 indexed productId, ProductStatus newStatus);
+    event VerificationRecorded(bytes32 indexed productId, bytes32 verificationHash);
+    event MetadataUpdated(bytes32 indexed productId, string newMetadataURI);
 
-    event ProductRegistered(
-        bytes32 indexed productId,
-        address indexed manufacturer,
-        string metadataURI
-    );
-    event ProductTransferred(
-        bytes32 indexed productId,
-        address indexed from,
-        address indexed to,
-        uint256 timestamp
-    );
-    event ProductStatusChanged(
-        bytes32 indexed productId,
-        ProductStatus newStatus
-    );
-    event VerificationRecorded(
-        bytes32 indexed productId,
-        bytes32 verificationHash
-    );
-
-    constructor(address _retailerRegistry) {
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(MANUFACTURER_ROLE, msg.sender);
-        _grantRole(VERIFIER_ROLE, msg.sender);
+    constructor(address _retailerRegistry, address admin) {
+        require(_retailerRegistry != address(0), "Zero registry");
         retailerRegistry = RetailerRegistry(_retailerRegistry);
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
+        _grantRole(REGISTRY_ADMIN_ROLE, admin);
     }
 
-    function registerProduct(
-        bytes32 productId,
-        string calldata metadataURI
-    ) external onlyRole(MANUFACTURER_ROLE) whenNotPaused {
-        require(!products[productId].exists, "Product already registered");
+    function registerProduct(string calldata metadataURI)
+        external
+        onlyRole(MANUFACTURER_ROLE)
+        whenNotPaused
+        returns (bytes32)
+    {
+        bytes32 productId = keccak256(abi.encodePacked(msg.sender, metadataURI, block.timestamp));
+        require(!products[productId].exists, "Product already exists");
 
         products[productId] = Product({
             productId: productId,
@@ -87,20 +71,19 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
             exists: true
         });
 
-        // Record initial "transfer" event
+        // Record initial registration event
         productHistory[productId].push(
             TransferEvent({
                 from: address(0),
                 to: msg.sender,
                 timestamp: block.timestamp,
                 location: "Manufacturing Facility",
-                verificationHash: keccak256(
-                    abi.encodePacked(productId, msg.sender, block.timestamp)
-                )
+                verificationHash: keccak256(abi.encodePacked(productId, msg.sender, block.timestamp))
             })
         );
 
         emit ProductRegistered(productId, msg.sender, metadataURI);
+        return productId;
     }
 
     function transferProduct(
@@ -109,13 +92,17 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         string calldata location,
         bytes32 verificationHash
     ) external nonReentrant whenNotPaused {
-        Product storage product = products[productId];
-        require(product.exists, "Product does not exist");
-        require(product.currentOwner == msg.sender, "Not current owner");
-        require(to != address(0), "Invalid recipient");
+        Product storage p = products[productId];
+        require(p.exists, "Not found");
+        require(p.currentOwner == msg.sender, "Not owner");
+        require(to != address(0), "Invalid address");
+        require(
+            retailerRegistry.isAuthorizedRetailer(to, msg.sender) || hasRole(MANUFACTURER_ROLE, to),
+            "Receiver not authorized"
+        );
 
-        product.currentOwner = to;
-        product.status = ProductStatus.InTransit;
+        p.currentOwner = to;
+        p.status = ProductStatus.InTransit;
 
         productHistory[productId].push(
             TransferEvent({
@@ -131,35 +118,100 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         emit ProductStatusChanged(productId, ProductStatus.InTransit);
     }
 
-    function updateProductStatus(
-        bytes32 productId,
-        ProductStatus newStatus
-    ) external onlyRole(VERIFIER_ROLE) {
-        Product storage product = products[productId];
-        require(product.exists, "Product does not exist");
+    function updateProductStatus(bytes32 productId, ProductStatus newStatus)
+        external
+        onlyRole(VERIFIER_ROLE)
+        whenNotPaused
+    {
+        Product storage p = products[productId];
+        require(p.exists, "Not found");
+        require(isValidTransition(p.status, newStatus), "Invalid transition");
 
-        product.status = newStatus;
+        p.status = newStatus;
         emit ProductStatusChanged(productId, newStatus);
     }
 
-    function recordVerification(
-        bytes32 productId,
-        bytes32 verificationHash
-    ) external onlyRole(VERIFIER_ROLE) {
-        require(products[productId].exists, "Product does not exist");
-        verifiedTransfers[productId][msg.sender] = true;
+    // verification Hooks 
+    /// @notice Called by VerificationManager after successful authenticity check.
+    function recordVerification(bytes32 productId, bytes32 verificationHash)
+        external
+        onlyRole(VERIFIER_ROLE)
+    {
+        require(products[productId].exists, "Invalid ID");
+        productHistory[productId].push(
+            TransferEvent({
+                from: products[productId].currentOwner,
+                to: products[productId].currentOwner,
+                timestamp: block.timestamp,
+                location: "Verification Node",
+                verificationHash: verificationHash
+            })
+        );
         emit VerificationRecorded(productId, verificationHash);
     }
 
-    function getProductHistory(
-        bytes32 productId
-    ) external view returns (TransferEvent[] memory) {
+    function getProduct(bytes32 productId)
+        external
+        view
+        returns (Product memory)
+    {
+        return products[productId];
+    }
+
+    function getProductHistory(bytes32 productId)
+        external
+        view
+        returns (TransferEvent[] memory)
+    {
         return productHistory[productId];
     }
 
-    function isAuthentic(bytes32 productId) external view returns (bool) {
-        return
-            products[productId].exists &&
-            products[productId].status != ProductStatus.Disputed;
+    function getBrandOwner(bytes32 productId)
+        external
+        view
+        returns (address)
+    {
+        return products[productId].manufacturer;
+    }
+
+    function isAuthentic(bytes32 productId)
+        external
+        view
+        returns (bool)
+    {
+        return products[productId].exists && products[productId].status != ProductStatus.Disputed;
+    }
+
+    // admin functions
+    function updateMetadataURI(bytes32 productId, string calldata newURI)
+        external
+        whenNotPaused
+    {
+        Product storage p = products[productId];
+        require(p.exists, "Not found");
+        require(p.manufacturer == msg.sender || hasRole(REGISTRY_ADMIN_ROLE, msg.sender), "Unauthorized");
+        p.metadataURI = newURI;
+        emit MetadataUpdated(productId, newURI);
+    }
+
+    function pause() external onlyRole(REGISTRY_ADMIN_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(REGISTRY_ADMIN_ROLE) {
+        _unpause();
+    }
+
+    // helper functions
+    function isValidTransition(ProductStatus from, ProductStatus to)
+        internal
+        pure
+        returns (bool)
+    {
+        if (from == ProductStatus.Registered && to == ProductStatus.InTransit) return true;
+        if (from == ProductStatus.InTransit && to == ProductStatus.AtRetailer) return true;
+        if (from == ProductStatus.AtRetailer && to == ProductStatus.Sold) return true;
+        if (to == ProductStatus.Disputed) return true; // Dispute can be raised from any state
+        return false;
     }
 }
