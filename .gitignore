@@ -1,6 +1,17 @@
 node_modules
 .env
 
+# Build directories
+/frontend/build
+build/
+
+# Dependencies lock files
+package-lock.json
+*/package-lock.json
+
+# Logs
+*.log
+
 # Hardhat files
 /cache
 /artifacts
