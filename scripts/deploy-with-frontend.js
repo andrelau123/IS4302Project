@@ -42,14 +42,14 @@ REACT_APP_NETWORK_NAME=Hardhat Local
 REACT_APP_RPC_URL=http://127.0.0.1:8545
 `;
 
-  const frontendDir = path.join(__dirname, "frontend");
+  const frontendDir = path.join(__dirname, "..", "frontend");
   if (fs.existsSync(frontendDir)) {
     fs.writeFileSync(path.join(frontendDir, ".env"), envContent);
     console.log("\nFrontend .env file created with contract addresses");
   }
 
   // Update constants file
-  const constantsPath = path.join(__dirname, "frontend", "src", "utils", "constants.js");
+  const constantsPath = path.join(__dirname, "..", "frontend", "src", "utils", "constants.js");
   if (fs.existsSync(constantsPath)) {
     let constantsContent = fs.readFileSync(constantsPath, "utf8");
     constantsContent = constantsContent.replace(

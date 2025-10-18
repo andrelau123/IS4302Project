@@ -16,6 +16,15 @@ const HARDHAT_NETWORK = {
   blockExplorerUrls: null,
 };
 
+// add normalization helper
+function normalizeChainId(chainId) {
+  if (!chainId) return null;
+  if (typeof chainId === "string" && chainId.startsWith("0x")) {
+    return String(parseInt(chainId, 16));
+  }
+  return String(chainId);
+}
+
 const useWallet = () => {
   const { sdk, connected, chainId } = useSDK();
   const [currentAccount, setCurrentAccount] = useState(null);
@@ -25,8 +34,9 @@ const useWallet = () => {
   const [balance, setBalance] = useState("0");
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // Check if on correct network (Hardhat local)
-  const isCorrectNetwork = currentChainId === "0x7A69" || currentChainId === "31337";
+  // Check if on correct network (Hardhat local) — normalize hex/decimal
+  const expectedChainDecimal = String(parseInt(HARDHAT_NETWORK.chainId, 16)); // "31337"
+  const isCorrectNetwork = normalizeChainId(currentChainId) === expectedChainDecimal;
 
   // Get wallet balance
   const getBalance = useCallback(async (account, ethProvider) => {
@@ -109,7 +119,9 @@ const useWallet = () => {
       if (accounts && accounts.length > 0) {
         console.log("Connected Account:", accounts[0]);
         setCurrentAccount(accounts[0]);
-        setCurrentChainId(chainId ? chainId.toString() : null);
+        // set normalized chain id (handle hex or decimal)
+        const rawChain = chainId ? chainId.toString() : (window.ethereum ? await window.ethereum.request({ method: 'eth_chainId' }) : null);
+        setCurrentChainId(normalizeChainId(rawChain));
         localStorage.setItem("isWalletConnected", "true");
         localStorage.setItem("connectedAccount", accounts[0]);
 
@@ -226,9 +238,10 @@ const useWallet = () => {
       const handleChainChanged = async (payload) => {
         const newChainId = payload;
         console.log("Chain Changed:", newChainId);
-        setCurrentChainId(newChainId);
+        const normalized = normalizeChainId(newChainId);
+        setCurrentChainId(normalized);
         
-        if (newChainId === "0x7A69" || newChainId === "31337") {
+        if (normalized === String(parseInt(HARDHAT_NETWORK.chainId, 16))) {
           toast.success("Connected to Hardhat Local network");
         } else {
           toast.warning("Please switch to Hardhat Local network for full functionality");
@@ -275,6 +288,19 @@ const useWallet = () => {
       return () => clearInterval(interval);
     }
   }, [currentAccount, provider, isCorrectNetwork, getBalance]);
+
+  // add small effect to initialize currentChainId on mount (uses sdk chainId if available)
+  useEffect(() => {
+    const initChain = async () => {
+      try {
+        const raw = chainId ? chainId.toString() : (window.ethereum ? await window.ethereum.request({ method: 'eth_chainId' }) : null);
+        setCurrentChainId(normalizeChainId(raw));
+      } catch (e) {
+        // ignore
+      }
+    };
+    initChain();
+  }, [chainId, sdk]);
 
   return {
     // Connection state
