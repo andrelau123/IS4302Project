@@ -53,9 +53,7 @@ contract FeeDistributor is AccessControl, ReentrancyGuard, Pausable {
         require(totalFee > 0, "Fee must be > 0");
         require(verifier != address(0), "Invalid verifier");
         require(brand != address(0), "Invalid brand");
-
-        // First, transfer the fee from the caller (VerificationManager) to this contract
-        authToken.transferFrom(msg.sender, address(this), totalFee);
+        require(authToken.balanceOf(address(this)) >= totalFee, "Insufficient balance");
 
         uint256 verifierAmt = (totalFee * shares.verifier) / 10_000;
         uint256 brandAmt = (totalFee * shares.brand) / 10_000;

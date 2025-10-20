@@ -18,11 +18,14 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
     
     uint256 public totalStaked;
     uint256 private _minted; // track total minted to enforce cap
+    uint256 public rewardPerTokenStored;
+    uint256 public lastUpdateTime;
 
     struct StakeInfo {
         uint256 amount;    // staked principal
-        uint256 stakedAt;  // last reward timestamp (also updated on claim/unstake)
         uint256 unlockAt;  // cannot unstake before this time
+        uint256 userRewardPerTokenPaid; // Snapshot of rewardPerTokenStored when user last interacted
+        uint256 rewards; // Earned but not yet claimed
     }
 
     mapping(address => StakeInfo) public stakes;
@@ -36,13 +39,23 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
     event Staked(address indexed user, uint256 amount, uint256 unlockAt);
     event Unstaked(address indexed user, uint256 amount, uint256 reward);
     event RewardClaimed(address indexed user, uint256 reward);
-    event RewardRateUpdated(uint256 newRatePercent);
-    event LockPeriodUpdated(uint256 newLockPeriod);
-    event RewardsToppedUp(uint256 amountMintedToPool);
+
+    modifier updateReward(address account) {
+        rewardPerTokenStored = rewardPerToken();
+        lastUpdateTime = block.timestamp;
+        
+        if (account != address(0)) {
+            stakes[account].rewards = earned(account);
+            stakes[account].userRewardPerTokenPaid = rewardPerTokenStored;
+        }
+        _;
+    }
 
     constructor() ERC20("Auth Token", "AUTH") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MINTER_ROLE, msg.sender);
+
+        lastUpdateTime = block.timestamp;
 
         // Initial distribution (100% of MAX_SUPPLY)
         _mintCapped(msg.sender, (MAX_SUPPLY * 40) / 100);     // 40% manufacturers (distribution)
@@ -51,19 +64,34 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         _mintCapped(msg.sender, (MAX_SUPPLY * 10) / 100);     // 10% team (assumed to be vesting off-chain or separate vesting contract)
     }
 
-    modifier onlyAdmin() {
-        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "AUTH: not admin");
-        _;
+    // Calculate reward per staked token
+    function rewardPerToken() public view returns (uint256) {
+        if (totalStaked == 0) {
+            return rewardPerTokenStored;
+        }
+        
+        uint256 timeDelta = block.timestamp - lastUpdateTime;
+        // rewardRate is annual %, convert to per-second rate
+        uint256 ratePerSecond = (rewardRate * 1e18) / (100 * SECONDS_PER_YEAR);
+        
+        return rewardPerTokenStored + (timeDelta * ratePerSecond);
+    }
+
+    // Calculate rewards earned by an account
+    function earned(address account) public view returns (uint256) {
+        StakeInfo memory s = stakes[account];
+        
+        uint256 rewardDelta = rewardPerToken() - s.userRewardPerTokenPaid;
+        uint256 newRewards = (s.amount * rewardDelta) / 1e18;
+        
+        return s.rewards + newRewards;
     }
 
     //External: Staking
     /// @notice Stake your AUTH to earn rewards.
-    function stake(uint256 amount) external whenNotPaused nonReentrant {
+    function stake(uint256 amount) external whenNotPaused nonReentrant updateReward(msg.sender) {
         require(amount > 0, "Amount=0");
         require(balanceOf(msg.sender) >= amount, "AUTH: insufficient balance");
-
-        // Settle any pending rewards first
-        _claimRewards(msg.sender);
 
         // Move tokens into the contract
         _transfer(msg.sender, address(this), amount);
@@ -71,7 +99,6 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         // Update stake
         StakeInfo storage s = stakes[msg.sender];
         s.amount += amount;
-        s.stakedAt = block.timestamp;
         s.unlockAt = block.timestamp + lockPeriod;
 
         totalStaked += amount;
@@ -80,59 +107,69 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
     }
 
     /// @notice Unstake principal (after lock) and auto-claim rewards.
-    function unstake(uint256 amount) external whenNotPaused nonReentrant {
+    function unstake(uint256 amount) external whenNotPaused nonReentrant updateReward(msg.sender) {
         require(amount > 0, "AUTH: zero amount");
         StakeInfo storage s = stakes[msg.sender];
         require(s.amount >= amount, "AUTH: insufficient staked");
         require(block.timestamp >= s.unlockAt, "Still locked");
 
-        // Calculate reward before reducing principal
-        uint256 reward = _pendingReward(msg.sender);
-
-        // Update accounting first (Checks-Effects-Interactions)
         s.amount -= amount;
         totalStaked -= amount;
-        s.stakedAt = block.timestamp; // reset accrual window after payout
 
         // Transfers: principal back to user
         _transfer(address(this), msg.sender, amount);
 
-        // Pay reward if available (won't touch principal pool)
-        uint256 paid = _payRewardSafely(msg.sender, reward);
-        emit Unstaked(msg.sender, amount, paid);
+        // Auto-claim rewards
+        uint256 reward = s.rewards;
+        if (reward > 0) {
+            s.rewards = 0;
+            uint256 paid = _payRewardSafely(msg.sender, reward);
+            emit Unstaked(msg.sender, amount, paid);
+        } else {
+            emit Unstaked(msg.sender, amount, 0);
+        }
     }
 
     /// @notice Unstake all principal and claim rewards (for tests)
-    function unstake() external whenNotPaused nonReentrant {
+    function unstake() external whenNotPaused nonReentrant updateReward(msg.sender) {
         StakeInfo storage s = stakes[msg.sender];
         uint256 amount = s.amount;
         require(amount > 0, "No stake");
         require(block.timestamp >= s.unlockAt, "Still locked");
 
-        // Calculate reward before reducing principal
-        uint256 reward = _pendingReward(msg.sender);
-
         // Update accounting first
         s.amount = 0;
         totalStaked -= amount;
-        s.stakedAt = block.timestamp;
 
         // Transfer principal back to user
         _transfer(address(this), msg.sender, amount);
 
-        // Pay reward if available
-        uint256 paid = _payRewardSafely(msg.sender, reward);
-        emit Unstaked(msg.sender, amount, paid);
+        uint256 reward = s.rewards;
+        if (reward > 0) {
+            s.rewards = 0;
+            uint256 paid = _payRewardSafely(msg.sender, reward);
+            emit Unstaked(msg.sender, amount, paid);
+        } else {
+            emit Unstaked(msg.sender, amount, 0);
+        }
     }
 
     /// @notice Claim any pending rewards without changing stake.
-    function claimRewards() external whenNotPaused nonReentrant {
-        _claimRewards(msg.sender);
+    function claimRewards() external whenNotPaused nonReentrant updateReward(msg.sender) {
+        uint256 reward = stakes[msg.sender].rewards;
+        require(reward > 0, "No rewards");
+
+        stakes[msg.sender].rewards = 0;
+        uint256 paid = _payRewardSafely(msg.sender, reward);
+
+        if (paid > 0) {
+            emit RewardClaimed(msg.sender, paid);
+        }
     }
 
     /// @notice Pending reward as of now, in AUTH.
     function pendingReward(address user) external view returns (uint256) {
-        return _pendingReward(user);
+        return earned(user);
     }
 
     /// @notice Available reward pool (excludes staked principal).
@@ -142,66 +179,6 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         return bal - totalStaked;
     }
 
-    /// @notice Update APY percentage (max capped for safety).
-    function setRewardRate(uint256 newRatePercent) external onlyAdmin {
-        require(newRatePercent <= MAX_APY_PERCENT, "Rate too high");
-        rewardRate = newRatePercent;
-        emit RewardRateUpdated(newRatePercent);
-    }
-
-    /// @notice Update minimum lock period for new/updated stakes.
-    function setLockPeriod(uint256 newLockPeriod) external onlyAdmin {
-        require(newLockPeriod <= 90 days, "AUTH: lock too long");
-        lockPeriod = newLockPeriod;
-        emit LockPeriodUpdated(newLockPeriod);
-    }
-
-    /// @notice Transfer additional rewards into the pool from caller's balance.
-    function topUpRewards(uint256 amount) external onlyRole(MINTER_ROLE) {
-        require(amount > 0, "AUTH: zero top-up");
-        require(balanceOf(msg.sender) >= amount, "AUTH: insufficient balance");
-        _transfer(msg.sender, address(this), amount);
-        emit RewardsToppedUp(amount);
-    }
-
-    function pause() external onlyAdmin {
-        _pause();
-    }
-
-    function unpause() external onlyAdmin {
-        _unpause();
-    }
-
-    /// @dev Core reward calculation: simple linear APY on principal over time.
-    function _pendingReward(address user) internal view returns (uint256) {
-        StakeInfo memory s = stakes[user];
-        if (s.amount == 0) return 0;
-        uint256 dt = block.timestamp - s.stakedAt;
-        // reward = amount * (rate%) * dt / (100 * seconds/year)
-        return (s.amount * rewardRate * dt) / (100 * SECONDS_PER_YEAR);
-    }
-
-    /// @dev Claims rewards for `user`, safely bounded by available reward pool.
-    function _claimRewards(address user) internal {
-        uint256 reward = _pendingReward(user);
-        if (reward == 0) {
-            // Still refresh timestamp to avoid indefinite accrual if pool was empty before
-            if (stakes[user].amount > 0) {
-                stakes[user].stakedAt = block.timestamp;
-            }
-            return;
-        }
-
-        uint256 paid = _payRewardSafely(user, reward);
-        // Refresh timestamp after paying whatever we could
-        stakes[user].stakedAt = block.timestamp;
-
-        if (paid > 0) {
-            emit RewardClaimed(user, paid);
-        }
-    }
-
-    /// @dev Pay reward up to available pool (does not consume staked principal).
     function _payRewardSafely(address to, uint256 desired) internal returns (uint256) {
         uint256 pool = availableRewardPool();
         if (pool == 0) return 0;
@@ -211,6 +188,33 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
             _transfer(address(this), to, amt);
         }
         return amt;
+    }
+
+    /// @notice Update APY percentage (max capped for safety).
+    function setRewardRate(uint256 newRatePercent) external onlyRole(DEFAULT_ADMIN_ROLE) updateReward(address(0)) {
+        require(newRatePercent <= MAX_APY_PERCENT, "Rate too high");
+        rewardRate = newRatePercent;
+    }
+
+    /// @notice Update minimum lock period for new/updated stakes.
+    function setLockPeriod(uint256 newLockPeriod) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newLockPeriod <= 90 days, "AUTH: lock too long");
+        lockPeriod = newLockPeriod;
+    }
+
+    /// @notice Transfer additional rewards into the pool from caller's balance.
+    function topUpRewards(uint256 amount) external onlyRole(MINTER_ROLE) {
+        require(amount > 0, "AUTH: zero top-up");
+        require(balanceOf(msg.sender) >= amount, "AUTH: insufficient balance");
+        _transfer(msg.sender, address(this), amount);
+    }
+
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
     }
     
     function _mintCapped(address to, uint256 amount) internal {

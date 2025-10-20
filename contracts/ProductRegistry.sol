@@ -58,6 +58,7 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         whenNotPaused
         returns (bytes32)
     {
+        require(bytes(metadataURI).length > 0, "Empty metadata URI");
         bytes32 productId = keccak256(abi.encodePacked(msg.sender, metadataURI, block.timestamp));
         require(!products[productId].exists, "Product already exists");
 
@@ -96,10 +97,11 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         require(p.exists, "Not found");
         require(p.currentOwner == msg.sender, "Not owner");
         require(to != address(0), "Invalid address");
-        require(
-            retailerRegistry.isAuthorizedRetailer(p.manufacturer, to) || hasRole(MANUFACTURER_ROLE, to),
-            "Unauthorized retailer"
-        );
+        
+        bool isManufacturer = hasRole(MANUFACTURER_ROLE, to) && to == p.manufacturer;
+        bool isAuthorizedRetailer = retailerRegistry.isAuthorizedRetailer(p.manufacturer, to);
+        
+        require(isAuthorizedRetailer || isManufacturer, "Unauthorized retailer");
 
         p.currentOwner = to;
         p.status = ProductStatus.InTransit;
@@ -190,6 +192,7 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         Product storage p = products[productId];
         require(p.exists, "Not found");
         require(p.manufacturer == msg.sender || hasRole(REGISTRY_ADMIN_ROLE, msg.sender), "Unauthorized");
+        require(bytes(newURI).length > 0, "Empty URI");
         p.metadataURI = newURI;
         emit MetadataUpdated(productId, newURI);
     }

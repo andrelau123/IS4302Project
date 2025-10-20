@@ -21,7 +21,7 @@ contract VerificationManager is AccessControl, ReentrancyGuard, Pausable {
 
     uint256 public minVerificationFee = 0.1 ether;
     uint256 public maxVerificationFee = 1 ether;
-    uint256 public minStakeAmount = 1_000 ether;
+    uint256 public minStakeAmount = 1000 ether;
     uint256 public verificationTimeout = 3 days;
 
     //data Structures 
@@ -151,8 +151,8 @@ contract VerificationManager is AccessControl, ReentrancyGuard, Pausable {
         v.totalVerifications++;
         if (result) v.successfulVerifications++;
 
-        // Distribute fee using FeeDistributor (automated 80/10/10 split)
-        authToken.approve(address(feeDistributor), r.fee);
+        // Transfer fee to FeeDistributor first, then let it handle distribution
+        authToken.transfer(address(feeDistributor), r.fee);
         feeDistributor.distributeRevenue(msg.sender, productRegistry.getBrandOwner(r.productId), r.fee);
 
         emit VerificationCompleted(requestId, result, msg.sender);
