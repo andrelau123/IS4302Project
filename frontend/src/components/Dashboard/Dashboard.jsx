@@ -21,6 +21,7 @@ import NetworkSetupGuide from '../NetworkSetupGuide';
 import DeploymentStatus from '../DeploymentStatus';
 import AdminPanel from './AdminPanel';
 import DistributionChart from './DistributionChart';
+import MyNFTsSection from './MyNFTsSection';
 import { ButtonVariants } from '../../types';
 
 const Dashboard = () => {
@@ -222,6 +223,11 @@ const Dashboard = () => {
             </Link>
           ))}
         </div>
+      </div>
+
+      {/* My NFTs Section */}
+      <div className="mb-8">
+        <MyNFTsSection />
       </div>
 
       {/* Rewards Section */}

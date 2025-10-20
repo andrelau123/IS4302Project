@@ -305,6 +305,7 @@ const useWallet = () => {
   return {
     // Connection state
     currentAccount,
+    account: currentAccount, // Alias for compatibility
     chainId: currentChainId,
     isConnected: !!currentAccount,
     isConnecting,

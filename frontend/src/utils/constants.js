@@ -1,7 +1,7 @@
 // Contract addresses - Update these with your deployed contract addresses
 export const CONTRACT_ADDRESSES = {
-  FEE_DISTRIBUTOR: process.env.REACT_APP_FEE_DISTRIBUTOR_ADDRESS || '0x...', // Replace with actual deployed address
-  AUTH_TOKEN: process.env.REACT_APP_AUTH_TOKEN_ADDRESS || '0x...', // Replace with actual deployed address
+  FEE_DISTRIBUTOR: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512', // Replace with actual deployed address
+  AUTH_TOKEN: '0x5FbDB2315678afecb367f032d93F642f64180aa3', // Replace with actual deployed address
   PRODUCT_REGISTRY: process.env.REACT_APP_PRODUCT_REGISTRY_ADDRESS || '0x...', // Replace with actual deployed address
   PRODUCT_NFT: process.env.REACT_APP_PRODUCT_NFT_ADDRESS || '0x...', // Replace with actual deployed address
   RETAILER_REGISTRY: process.env.REACT_APP_RETAILER_REGISTRY_ADDRESS || '0x...', // Replace with actual deployed address

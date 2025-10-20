@@ -6,7 +6,11 @@ import Modal from '../components/Common/Modal';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
 import { useProductRegistry } from '../hooks/useContracts';
 import { useWallet } from '../contexts/WalletContext';
-import { ButtonVariants, PRODUCT_STATUS_LABELS } from '../types';
+import { ButtonVariants, PRODUCT_STATUS_LABELS, ModalSizes } from '../types';
+import { ethers } from 'ethers';
+import ProductRegistryABI from '../contracts/ProductRegistry.json';
+import marketplaceConfig from '../marketplaceConfig.json';
+import { toast } from 'react-toastify';
 
 const ProductsPage = () => {
   const [products, setProducts] = useState([]);
@@ -15,6 +19,8 @@ const ProductsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const [newProduct, setNewProduct] = useState({
     name: '',
     description: '',
@@ -24,7 +30,31 @@ const ProductsPage = () => {
   });
 
   const { registerProduct, getProduct } = useProductRegistry();
-  const { account, isConnected } = useWallet();
+  const { account, isConnected, provider, signer } = useWallet();
+
+  // Helper function to extract readable name from metadataURI
+  const extractProductName = (uri) => {
+    if (!uri) return 'Product';
+    
+    // Remove ipfs:// prefix
+    let name = uri.replace('ipfs://', '').replace('ipfs:', '');
+    
+    // Remove Qm prefix if exists
+    name = name.replace(/^Qm/, '');
+    
+    // Remove timestamp suffix (last dash and numbers)
+    name = name.replace(/-\d+$/, '');
+    
+    // Replace dashes/underscores with spaces
+    name = name.replace(/[-_]/g, ' ');
+    
+    // Capitalize first letter of each word
+    name = name.split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+    
+    return name || 'Product';
+  };
 
   // Mock data for demonstration - replace with actual contract calls
   const mockProducts = [
@@ -61,21 +91,80 @@ const ProductsPage = () => {
   ];
 
   useEffect(() => {
-    loadProducts();
-  }, []);
+    if (provider) {
+      loadProducts();
+    }
+  }, [provider]);
 
   useEffect(() => {
     filterProducts();
   }, [products, searchTerm, statusFilter]);
 
   const loadProducts = async () => {
+    if (!provider) {
+      console.log('[ProductsPage] Provider not ready');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // For now, use mock data
-      // TODO: Replace with actual contract calls when ABIs are available
-      setProducts(mockProducts);
+      console.log('[ProductsPage] Loading products from blockchain...');
+      
+      // Create contract instance
+      const productRegistry = new ethers.Contract(
+        marketplaceConfig.productRegistry,
+        ProductRegistryABI.abi,
+        provider
+      );
+
+      // Query ProductRegistered events
+      const filter = productRegistry.filters.ProductRegistered();
+      const events = await productRegistry.queryFilter(filter);
+      
+      console.log(`[ProductsPage] Found ${events.length} product registration events`);
+
+      const productsData = await Promise.all(
+        events.map(async (event) => {
+          const productId = event.args.productId;
+          const manufacturer = event.args.manufacturer;
+          const metadataURI = event.args.metadataURI;
+          
+          try {
+            // Get current product details
+            const product = await productRegistry.getProduct(productId);
+            
+            // Extract readable name from metadataURI
+            const productName = extractProductName(metadataURI);
+            
+            return {
+              id: productId,
+              name: productName,
+              description: `Product ID: ${productId.slice(0, 10)}...`,
+              category: 'General',
+              status: Number(product.status),
+              manufacturer: manufacturer,
+              registeredAt: Number(product.registeredAt) * 1000,
+              metadataURI: metadataURI,
+              isVerified: product.status >= 0
+            };
+          } catch (err) {
+            console.error(`Error fetching product ${productId}:`, err);
+            return null;
+          }
+        })
+      );
+
+      // Filter out null values and set products
+      const validProducts = productsData.filter(p => p !== null);
+      console.log(`[ProductsPage] Loaded ${validProducts.length} products`);
+      setProducts(validProducts);
+      
+      if (validProducts.length === 0) {
+        toast.info('No products registered yet. Register your first product!');
+      }
     } catch (error) {
-      console.error('Error loading products:', error);
+      console.error('[ProductsPage] Error loading products:', error);
+      toast.error('Failed to load products from blockchain');
     } finally {
       setIsLoading(false);
     }
@@ -105,47 +194,75 @@ const ProductsPage = () => {
 
   const handleRegisterProduct = async () => {
     if (!isConnected) {
-      alert('Please connect your wallet first');
+      toast.error('Please connect your wallet first');
+      return;
+    }
+
+    if (!signer) {
+      toast.error('Wallet signer not available');
+      return;
+    }
+
+    if (!newProduct.name) {
+      toast.error('Please enter a product name');
       return;
     }
 
     try {
-      const productId = `0x${Date.now().toString(16)}`; // Generate a simple ID
-      const productData = {
-        productId,
-        metadataURI: newProduct.metadataURI || `ipfs://example-hash-${Date.now()}`
-      };
+      console.log('[ProductsPage] Registering product...');
+      toast.info('Registering product on blockchain...');
 
-      // TODO: Uncomment when contract is available
-      // const result = await registerProduct(productData);
-      // if (result?.success) {
-      //   loadProducts();
-      //   setShowRegisterModal(false);
-      //   setNewProduct({ name: '', description: '', category: '', origin: '', metadataURI: '' });
-      // }
+      // Create contract instance with signer
+      const productRegistry = new ethers.Contract(
+        marketplaceConfig.productRegistry,
+        ProductRegistryABI.abi,
+        signer
+      );
 
-      // For demo purposes, add to mock data
-      const newMockProduct = {
-        id: productId,
-        name: newProduct.name,
-        description: newProduct.description,
-        category: newProduct.category,
-        status: 0, // REGISTERED
-        manufacturer: account,
-        registeredAt: Date.now(),
-        isVerified: false
-      };
+      // Create metadata URI from product details
+      const metadataURI = newProduct.metadataURI || `ipfs://${newProduct.name.replace(/\s+/g, '-')}-${Date.now()}`;
       
-      setProducts(prev => [newMockProduct, ...prev]);
+      console.log('[ProductsPage] Calling registerProduct with URI:', metadataURI);
+
+      // Call registerProduct on blockchain
+      const tx = await productRegistry.registerProduct(metadataURI);
+      
+      toast.info('Transaction submitted! Waiting for confirmation...');
+      console.log('[ProductsPage] Transaction hash:', tx.hash);
+      
+      // Wait for transaction to be mined
+      const receipt = await tx.wait();
+      console.log('[ProductsPage] Transaction confirmed!', receipt);
+
+      toast.success(`Product "${newProduct.name}" registered successfully!`);
+
+      // Reload products from blockchain
+      await loadProducts();
+      
+      // Reset form and close modal
       setShowRegisterModal(false);
       setNewProduct({ name: '', description: '', category: '', origin: '', metadataURI: '' });
+      
     } catch (error) {
-      console.error('Error registering product:', error);
+      console.error('[ProductsPage] Error registering product:', error);
+      
+      if (error.code === 'ACTION_REJECTED') {
+        toast.error('Transaction was rejected');
+      } else if (error.message?.includes('MANUFACTURER_ROLE')) {
+        toast.error('You need MANUFACTURER_ROLE to register products. Contact admin.');
+      } else {
+        toast.error(`Error registering product: ${error.reason || error.message}`);
+      }
     }
   };
 
   const formatAddress = (address) => {
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  };
+
+  const handleViewDetails = (product) => {
+    setSelectedProduct(product);
+    setShowDetailsModal(true);
   };
 
   const formatDate = (timestamp) => {
@@ -175,13 +292,14 @@ const ProductsPage = () => {
       <div className="mb-6 flex flex-col sm:flex-row gap-4">
         {/* Search */}
         <div className="flex-1 relative">
-          <AiOutlineSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          <AiOutlineSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none z-10" size={20} />
           <input
             type="text"
             placeholder="Search products..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="input-field pl-10"
+            className="w-full py-3 pr-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
+            style={{ paddingLeft: '3rem' }}
           />
         </div>
 
@@ -281,7 +399,7 @@ const ProductsPage = () => {
                 <div className="pt-4 border-t border-gray-200">
                   <Button
                     variant={ButtonVariants.SECONDARY}
-                    onClick={() => {/* TODO: Navigate to product details */}}
+                    onClick={() => handleViewDetails(product)}
                     className="w-full"
                   >
                     View Details
@@ -298,7 +416,7 @@ const ProductsPage = () => {
         open={showRegisterModal}
         title="Register New Product"
         onClose={() => setShowRegisterModal(false)}
-        maxWidth="md"
+        maxWidth={ModalSizes.MEDIUM}
       >
         <div className="space-y-4">
           <div>
@@ -395,6 +513,125 @@ const ProductsPage = () => {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Product Details Modal */}
+      <Modal
+        open={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
+        title="Product Details"
+        maxWidth={ModalSizes.EXTRA_LARGE}
+      >
+        {selectedProduct && (
+          <div className="space-y-6">
+            {/* Product Header */}
+            <div className="border-b border-gray-200 pb-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                    {selectedProduct.name}
+                  </h3>
+                  <p className="text-gray-600">{selectedProduct.description}</p>
+                </div>
+                {selectedProduct.isVerified && (
+                  <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
+                    Verified
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Product Information Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Product ID</label>
+                  <p className="mt-1 text-sm font-mono text-gray-900 break-all">
+                    {selectedProduct.id}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Category</label>
+                  <p className="mt-1 text-sm text-gray-900">{selectedProduct.category}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Status</label>
+                  <p className="mt-1">
+                    <span className={`px-3 py-1 text-sm font-medium rounded-full ${
+                      selectedProduct.status === 0 ? 'bg-blue-100 text-blue-800' :
+                      selectedProduct.status === 1 ? 'bg-yellow-100 text-yellow-800' :
+                      selectedProduct.status === 2 ? 'bg-green-100 text-green-800' :
+                      selectedProduct.status === 3 ? 'bg-purple-100 text-purple-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {PRODUCT_STATUS_LABELS[selectedProduct.status] || 'Unknown'}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Manufacturer</label>
+                  <p className="mt-1 text-sm font-mono text-gray-900">
+                    {formatAddress(selectedProduct.manufacturer)}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Registered Date</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {new Date(selectedProduct.registeredAt).toLocaleString()}
+                  </p>
+                </div>
+
+                {selectedProduct.metadataURI && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Metadata URI</label>
+                    <p className="mt-1 text-sm font-mono text-gray-900 break-all">
+                      {selectedProduct.metadataURI}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Blockchain Information */}
+            <div className="border-t border-gray-200 pt-4">
+              <h4 className="text-sm font-semibold text-gray-900 mb-3">Blockchain Information</h4>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Network:</span>
+                  <span className="font-medium text-gray-900">Hardhat Local (Chain ID: 31337)</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Contract:</span>
+                  <span className="font-mono text-gray-900 text-xs">
+                    {formatAddress(marketplaceConfig.productRegistry)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Verification Status:</span>
+                  <span className={`font-medium ${selectedProduct.isVerified ? 'text-green-600' : 'text-yellow-600'}`}>
+                    {selectedProduct.isVerified ? 'Verified on blockchain' : 'Pending verification'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                variant={ButtonVariants.SECONDARY}
+                onClick={() => setShowDetailsModal(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

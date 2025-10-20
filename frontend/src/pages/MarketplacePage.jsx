@@ -7,6 +7,10 @@ import LoadingSpinner from '../components/Common/LoadingSpinner';
 import { useProductNFT } from '../hooks/useContracts';
 import { useWallet } from '../contexts/WalletContext';
 import { ButtonVariants } from '../types';
+import { ethers } from 'ethers';
+import MarketplaceABI from '../contracts/Marketplace.json';
+import marketplaceConfig from '../marketplaceConfig.json';
+import { toast } from 'react-toastify';
 
 const MarketplacePage = () => {
   const [listings, setListings] = useState([]);
@@ -17,7 +21,7 @@ const MarketplacePage = () => {
   const [priceSort, setPriceSort] = useState('none');
 
   const { getUserNFTs } = useProductNFT();
-  const { account, isConnected } = useWallet();
+  const { account, isConnected, signer, provider } = useWallet();
 
   // Mock marketplace data
   const mockListings = [
@@ -84,8 +88,10 @@ const MarketplacePage = () => {
   ];
 
   useEffect(() => {
-    loadListings();
-  }, []);
+    if (provider) {
+      loadListings();
+    }
+  }, [provider]);
 
   useEffect(() => {
     filterAndSortListings();
@@ -94,11 +100,56 @@ const MarketplacePage = () => {
   const loadListings = async () => {
     setIsLoading(true);
     try {
-      // For now, use mock data
-      // TODO: Replace with actual marketplace contract calls
-      setListings(mockListings);
+      if (!provider) {
+        console.log('Provider not ready');
+        return;
+      }
+
+      // Create marketplace contract instance
+      const marketplace = new ethers.Contract(
+        marketplaceConfig.marketplace,
+        MarketplaceABI.abi,
+        provider
+      );
+
+      // Check which NFTs are still listed
+      const availableListings = [];
+      
+      for (let i = 0; i < marketplaceConfig.listings.length; i++) {
+        const item = marketplaceConfig.listings[i];
+        try {
+          const isListed = await marketplace.isListed(item.tokenId);
+          
+          if (isListed) {
+            availableListings.push({
+              id: item.tokenId,
+              tokenId: item.tokenId,
+              name: item.name + " NFT",
+              description: `Authentic ${item.name.toLowerCase()} with blockchain verification`,
+              price: item.price,
+              currency: 'ETH',
+              image: '/api/placeholder/300/300',
+              seller: item.seller,
+              isVerified: true,
+              category: i === 0 ? 'Food & Beverage' : i === 1 ? 'Clothing' : i === 2 ? 'Accessories' : 'Art & Crafts',
+              rarity: i === 0 ? 'Rare' : i === 2 ? 'Epic' : 'Common',
+              likes: Math.floor(Math.random() * 100),
+              views: Math.floor(Math.random() * 500)
+            });
+          }
+        } catch (error) {
+          console.error(`Error checking listing ${item.tokenId}:`, error);
+        }
+      }
+      
+      setListings(availableListings);
+      
+      if (availableListings.length === 0) {
+        toast.info('All NFTs have been sold! Check back later for new listings.');
+      }
     } catch (error) {
       console.error('Error loading listings:', error);
+      toast.error('Failed to load marketplace listings');
     } finally {
       setIsLoading(false);
     }
@@ -137,13 +188,53 @@ const MarketplacePage = () => {
 
   const handlePurchase = async (listing) => {
     if (!isConnected) {
-      alert('Please connect your wallet first');
+      toast.error('Please connect your wallet first');
       return;
     }
 
-    // TODO: Implement purchase logic
-    console.log('Purchasing:', listing);
-    alert(`Purchase functionality for ${listing.name} will be implemented when contracts are ready`);
+    if (!signer) {
+      toast.error('Wallet not properly connected');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      toast.info(`Purchasing ${listing.name}...`);
+
+      // Create marketplace contract instance
+      const marketplace = new ethers.Contract(
+        marketplaceConfig.marketplace,
+        MarketplaceABI.abi,
+        signer
+      );
+
+      // Purchase NFT - send ETH as value
+      const priceInWei = ethers.parseEther(listing.price);
+      const tx = await marketplace.purchaseNFT(listing.tokenId, {
+        value: priceInWei
+      });
+
+      toast.info('Transaction submitted! Waiting for confirmation...');
+      await tx.wait();
+
+      toast.success(`🎉 Successfully purchased ${listing.name}!`);
+      
+      // Refresh listings
+      await loadListings();
+
+    } catch (error) {
+      console.error('Purchase failed:', error);
+      
+      if (error.code === 'ACTION_REJECTED') {
+        toast.error('Transaction was rejected');
+      } else if (error.message?.includes('insufficient funds')) {
+        toast.error('Insufficient funds to complete purchase');
+      } else {
+        toast.error('Purchase failed: ' + (error.reason || error.message));
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLike = (listingId) => {
