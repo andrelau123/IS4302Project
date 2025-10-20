@@ -21,7 +21,7 @@ const MarketplacePage = () => {
   const [priceSort, setPriceSort] = useState('none');
 
   const { getUserNFTs } = useProductNFT();
-  const { account, isConnected, signer } = useWallet();
+  const { account, isConnected, signer, provider } = useWallet();
 
   // Mock marketplace data
   const mockListings = [
@@ -88,8 +88,10 @@ const MarketplacePage = () => {
   ];
 
   useEffect(() => {
-    loadListings();
-  }, []);
+    if (provider) {
+      loadListings();
+    }
+  }, [provider]);
 
   useEffect(() => {
     filterAndSortListings();
@@ -98,24 +100,53 @@ const MarketplacePage = () => {
   const loadListings = async () => {
     setIsLoading(true);
     try {
-      // Load real listings from config
-      const realListings = marketplaceConfig.listings.map((item, index) => ({
-        id: item.tokenId,
-        tokenId: item.tokenId,
-        name: item.name + " NFT",
-        description: `Authentic ${item.name.toLowerCase()} with blockchain verification`,
-        price: item.price,
-        currency: 'ETH',
-        image: '/api/placeholder/300/300',
-        seller: item.seller,
-        isVerified: true,
-        category: index === 0 ? 'Food & Beverage' : index === 1 ? 'Clothing' : index === 2 ? 'Accessories' : 'Art & Crafts',
-        rarity: index === 0 ? 'Rare' : index === 2 ? 'Epic' : 'Common',
-        likes: Math.floor(Math.random() * 100),
-        views: Math.floor(Math.random() * 500)
-      }));
+      if (!provider) {
+        console.log('Provider not ready');
+        return;
+      }
+
+      // Create marketplace contract instance
+      const marketplace = new ethers.Contract(
+        marketplaceConfig.marketplace,
+        MarketplaceABI.abi,
+        provider
+      );
+
+      // Check which NFTs are still listed
+      const availableListings = [];
       
-      setListings(realListings);
+      for (let i = 0; i < marketplaceConfig.listings.length; i++) {
+        const item = marketplaceConfig.listings[i];
+        try {
+          const isListed = await marketplace.isListed(item.tokenId);
+          
+          if (isListed) {
+            availableListings.push({
+              id: item.tokenId,
+              tokenId: item.tokenId,
+              name: item.name + " NFT",
+              description: `Authentic ${item.name.toLowerCase()} with blockchain verification`,
+              price: item.price,
+              currency: 'ETH',
+              image: '/api/placeholder/300/300',
+              seller: item.seller,
+              isVerified: true,
+              category: i === 0 ? 'Food & Beverage' : i === 1 ? 'Clothing' : i === 2 ? 'Accessories' : 'Art & Crafts',
+              rarity: i === 0 ? 'Rare' : i === 2 ? 'Epic' : 'Common',
+              likes: Math.floor(Math.random() * 100),
+              views: Math.floor(Math.random() * 500)
+            });
+          }
+        } catch (error) {
+          console.error(`Error checking listing ${item.tokenId}:`, error);
+        }
+      }
+      
+      setListings(availableListings);
+      
+      if (availableListings.length === 0) {
+        toast.info('All NFTs have been sold! Check back later for new listings.');
+      }
     } catch (error) {
       console.error('Error loading listings:', error);
       toast.error('Failed to load marketplace listings');
