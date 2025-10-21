@@ -144,6 +144,27 @@ const ProductsPage = () => {
             // Extract readable name from metadataURI
             const productName = extractProductName(metadataURI);
 
+            // Fetch product history and check for a verification record
+            let isVerified = false;
+            try {
+              const history = await productRegistry.getProductHistory(
+                productId
+              );
+              // Look for an entry coming from the VerificationManager (location set to "Verification Node")
+              if (Array.isArray(history) && history.length > 0) {
+                isVerified = history.some((h) => {
+                  try {
+                    // `location` is expected to be a string in the TransferEvent struct
+                    return h.location && h.location === "Verification Node";
+                  } catch (e) {
+                    return false;
+                  }
+                });
+              }
+            } catch (historyErr) {
+              console.warn("Could not fetch product history:", historyErr);
+            }
+
             return {
               id: productId,
               name: productName,
@@ -153,7 +174,7 @@ const ProductsPage = () => {
               manufacturer: manufacturer,
               registeredAt: Number(product.registeredAt) * 1000,
               metadataURI: metadataURI,
-              isVerified: product.status >= 0,
+              isVerified,
             };
           } catch (err) {
             console.error(`Error fetching product ${productId}:`, err);
