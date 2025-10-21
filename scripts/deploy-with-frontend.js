@@ -115,6 +115,141 @@ async function main() {
   await marketplace.waitForDeployment();
   console.log("Marketplace deployed to:", marketplace.target);
 
+  // Configure roles and cross-contract permissions
+  console.log("\nConfiguring contract roles and permissions...");
+
+  // Grant MINTER_ROLE to deployer for ProductNFT (safe even if constructor already set it)
+  try {
+    const MINTER_ROLE = await productNFT.MINTER_ROLE();
+    const hasMinter = await productNFT.hasRole(MINTER_ROLE, deployer.address);
+    if (!hasMinter) {
+      console.log("Granting MINTER_ROLE to deployer on ProductNFT...");
+      const tx = await productNFT.grantRole(MINTER_ROLE, deployer.address);
+      await tx.wait();
+      console.log("\u2705 MINTER_ROLE granted to deployer on ProductNFT");
+    } else {
+      console.log("Deployer already has MINTER_ROLE on ProductNFT");
+    }
+  } catch (err) {
+    console.warn(
+      "Could not grant MINTER_ROLE on ProductNFT:",
+      err?.message || err
+    );
+  }
+
+  // Whitelist marketplace for NFT transfers (if function exists)
+  try {
+    if (
+      typeof productNFT.setWhitelistedAddress === "function" ||
+      productNFT.setWhitelistedAddress
+    ) {
+      console.log(
+        "Whitelisting Marketplace address on ProductNFT for transfers..."
+      );
+      const tx = await productNFT.setWhitelistedAddress(
+        marketplace.target,
+        true
+      );
+      await tx.wait();
+      console.log("\u2705 Marketplace whitelisted on ProductNFT");
+    }
+  } catch (err) {
+    // fallback: ignore if method is not present or failed
+    console.warn(
+      "Could not whitelist marketplace on ProductNFT:",
+      err?.message || err
+    );
+  }
+
+  // Grant TRANSFER_VALIDATOR_ROLE on ProductNFT to Marketplace so it can move tokens on sales
+  try {
+    const TRANSFER_VALIDATOR_ROLE = await productNFT.TRANSFER_VALIDATOR_ROLE();
+    const hasValidator = await productNFT.hasRole(
+      TRANSFER_VALIDATOR_ROLE,
+      marketplace.target
+    );
+    if (!hasValidator) {
+      console.log(
+        "Granting TRANSFER_VALIDATOR_ROLE to Marketplace on ProductNFT..."
+      );
+      const tx = await productNFT.grantRole(
+        TRANSFER_VALIDATOR_ROLE,
+        marketplace.target
+      );
+      await tx.wait();
+      console.log("\u2705 TRANSFER_VALIDATOR_ROLE granted to Marketplace");
+    } else {
+      console.log(
+        "Marketplace already has TRANSFER_VALIDATOR_ROLE on ProductNFT"
+      );
+    }
+  } catch (err) {
+    console.warn(
+      "Could not grant TRANSFER_VALIDATOR_ROLE on ProductNFT:",
+      err?.message || err
+    );
+  }
+
+  // Grant MANUFACTURER_ROLE on ProductRegistry to deployer (so deployer can register products in demos)
+  try {
+    const MANUFACTURER_ROLE = await productRegistry.MANUFACTURER_ROLE();
+    const hasManu = await productRegistry.hasRole(
+      MANUFACTURER_ROLE,
+      deployer.address
+    );
+    if (!hasManu) {
+      console.log(
+        "Granting MANUFACTURER_ROLE to deployer on ProductRegistry..."
+      );
+      const tx = await productRegistry.grantRole(
+        MANUFACTURER_ROLE,
+        deployer.address
+      );
+      await tx.wait();
+      console.log(
+        "\u2705 MANUFACTURER_ROLE granted to deployer on ProductRegistry"
+      );
+    } else {
+      console.log("Deployer already has MANUFACTURER_ROLE on ProductRegistry");
+    }
+  } catch (err) {
+    console.warn(
+      "Could not grant MANUFACTURER_ROLE on ProductRegistry:",
+      err?.message || err
+    );
+  }
+
+  // Grant DISTRIBUTOR_ROLE on FeeDistributor to VerificationManager so it can distribute fees
+  try {
+    const DISTRIBUTOR_ROLE = await feeDistributor.DISTRIBUTOR_ROLE();
+    const hasDistributor = await feeDistributor.hasRole(
+      DISTRIBUTOR_ROLE,
+      verificationManager.target
+    );
+    if (!hasDistributor) {
+      console.log(
+        "Granting DISTRIBUTOR_ROLE on FeeDistributor to VerificationManager..."
+      );
+      const tx = await feeDistributor.grantRole(
+        DISTRIBUTOR_ROLE,
+        verificationManager.target
+      );
+      await tx.wait();
+      console.log(
+        "\u2705 DISTRIBUTOR_ROLE granted to VerificationManager on FeeDistributor"
+      );
+    } else {
+      console.log(
+        "VerificationManager already has DISTRIBUTOR_ROLE on FeeDistributor"
+      );
+    }
+  } catch (err) {
+    console.warn(
+      "Could not grant DISTRIBUTOR_ROLE on FeeDistributor:",
+      err?.message || err
+    );
+  }
+
   // Create frontend environment file with all deployed addresses
   const envContent = `# Contract addresses
 REACT_APP_AUTH_TOKEN_ADDRESS=${authToken.target}
