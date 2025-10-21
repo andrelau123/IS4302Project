@@ -7,17 +7,47 @@ async function main() {
 
   // Get signers
   const [deployer, treasury] = await ethers.getSigners();
-  
+
   console.log("Deploying contracts with the account:", deployer.address);
-  console.log("Account balance:", (await deployer.provider.getBalance(deployer.address)).toString());
+  console.log(
+    "Account balance:",
+    (await deployer.provider.getBalance(deployer.address)).toString()
+  );
 
   // Deploy AuthToken
   console.log("\nDeploying AuthToken...");
   const AuthToken = await ethers.getContractFactory("AuthToken");
   const authToken = await AuthToken.deploy();
   await authToken.waitForDeployment();
-  
+
   console.log("AuthToken deployed to:", authToken.target);
+
+  // Deploy RetailerRegistry (no args)
+  console.log("\nDeploying RetailerRegistry...");
+  const RetailerRegistry = await ethers.getContractFactory("RetailerRegistry");
+  const retailerRegistry = await RetailerRegistry.deploy();
+  await retailerRegistry.waitForDeployment();
+  console.log("RetailerRegistry deployed to:", retailerRegistry.target);
+
+  // Deploy ProductRegistry (needs retailerRegistry, admin)
+  console.log("\nDeploying ProductRegistry...");
+  const ProductRegistry = await ethers.getContractFactory("ProductRegistry");
+  const productRegistry = await ProductRegistry.deploy(
+    retailerRegistry.target,
+    deployer.address
+  );
+  await productRegistry.waitForDeployment();
+  console.log("ProductRegistry deployed to:", productRegistry.target);
+
+  // Deploy ProductNFT (needs productRegistry, retailerRegistry)
+  console.log("\nDeploying ProductNFT...");
+  const ProductNFT = await ethers.getContractFactory("ProductNFT");
+  const productNFT = await ProductNFT.deploy(
+    productRegistry.target,
+    retailerRegistry.target
+  );
+  await productNFT.waitForDeployment();
+  console.log("ProductNFT deployed to:", productNFT.target);
 
   // Deploy FeeDistributor
   console.log("\nDeploying FeeDistributor...");
@@ -28,13 +58,75 @@ async function main() {
     deployer.address
   );
   await feeDistributor.waitForDeployment();
-  
+
   console.log("FeeDistributor deployed to:", feeDistributor.target);
 
-  // Create frontend environment file
+  // Deploy VerificationManager (authToken, productRegistry, feeDistributor)
+  console.log("\nDeploying VerificationManager...");
+  const VerificationManager = await ethers.getContractFactory(
+    "VerificationManager"
+  );
+  const verificationManager = await VerificationManager.deploy(
+    authToken.target,
+    productRegistry.target,
+    feeDistributor.target
+  );
+  await verificationManager.waitForDeployment();
+  console.log("VerificationManager deployed to:", verificationManager.target);
+
+  // Deploy OracleIntegration (admin)
+  console.log("\nDeploying OracleIntegration...");
+  const OracleIntegration = await ethers.getContractFactory(
+    "OracleIntegration"
+  );
+  const oracleIntegration = await OracleIntegration.deploy(deployer.address);
+  await oracleIntegration.waitForDeployment();
+  console.log("OracleIntegration deployed to:", oracleIntegration.target);
+
+  // Deploy DisputeResolution (productRegistry, authToken)
+  console.log("\nDeploying DisputeResolution...");
+  const DisputeResolution = await ethers.getContractFactory(
+    "DisputeResolution"
+  );
+  const disputeResolution = await DisputeResolution.deploy(
+    productRegistry.target,
+    authToken.target
+  );
+  await disputeResolution.waitForDeployment();
+  console.log("DisputeResolution deployed to:", disputeResolution.target);
+
+  // Deploy GovernanceVoting (authToken, admin)
+  console.log("\nDeploying GovernanceVoting...");
+  const GovernanceVoting = await ethers.getContractFactory("GovernanceVoting");
+  const governanceVoting = await GovernanceVoting.deploy(
+    authToken.target,
+    deployer.address
+  );
+  await governanceVoting.waitForDeployment();
+  console.log("GovernanceVoting deployed to:", governanceVoting.target);
+
+  // Deploy Marketplace (productNFT, feeRecipient)
+  console.log("\nDeploying Marketplace...");
+  const Marketplace = await ethers.getContractFactory("Marketplace");
+  const marketplace = await Marketplace.deploy(
+    productNFT.target,
+    treasury.address
+  );
+  await marketplace.waitForDeployment();
+  console.log("Marketplace deployed to:", marketplace.target);
+
+  // Create frontend environment file with all deployed addresses
   const envContent = `# Contract addresses
-REACT_APP_FEE_DISTRIBUTOR_ADDRESS=${feeDistributor.target}
 REACT_APP_AUTH_TOKEN_ADDRESS=${authToken.target}
+REACT_APP_FEE_DISTRIBUTOR_ADDRESS=${feeDistributor.target}
+REACT_APP_PRODUCT_REGISTRY_ADDRESS=${productRegistry.target}
+REACT_APP_RETAILER_REGISTRY_ADDRESS=${retailerRegistry.target}
+REACT_APP_PRODUCT_NFT_ADDRESS=${productNFT.target}
+REACT_APP_VERIFICATION_MANAGER_ADDRESS=${verificationManager.target}
+REACT_APP_ORACLE_INTEGRATION_ADDRESS=${oracleIntegration.target}
+REACT_APP_DISPUTE_RESOLUTION_ADDRESS=${disputeResolution.target}
+REACT_APP_GOVERNANCE_VOTING_ADDRESS=${governanceVoting.target}
+REACT_APP_MARKETPLACE_ADDRESS=${marketplace.target}
 
 # Network configuration
 REACT_APP_CHAIN_ID=31337
@@ -49,17 +141,45 @@ REACT_APP_RPC_URL=http://127.0.0.1:8545
   }
 
   // Update constants file
-  const constantsPath = path.join(__dirname, "..", "frontend", "src", "utils", "constants.js");
+  const constantsPath = path.join(
+    __dirname,
+    "..",
+    "frontend",
+    "src",
+    "utils",
+    "constants.js"
+  );
   if (fs.existsSync(constantsPath)) {
     let constantsContent = fs.readFileSync(constantsPath, "utf8");
-    constantsContent = constantsContent.replace(
-      /FEE_DISTRIBUTOR: process\.env\.REACT_APP_FEE_DISTRIBUTOR_ADDRESS \|\| '0x\.\.\.'/,
-      `FEE_DISTRIBUTOR: '${feeDistributor.target}'`
-    );
-    constantsContent = constantsContent.replace(
-      /AUTH_TOKEN: process\.env\.REACT_APP_AUTH_TOKEN_ADDRESS \|\| '0x\.\.\.'/,
-      `AUTH_TOKEN: '${authToken.target}'`
-    );
+
+    const replacements = {
+      AUTH_TOKEN: authToken.target,
+      FEE_DISTRIBUTOR: feeDistributor.target,
+      PRODUCT_REGISTRY: productRegistry.target,
+      RETAILER_REGISTRY: retailerRegistry.target,
+      PRODUCT_NFT: productNFT.target,
+      VERIFICATION_MANAGER: verificationManager.target,
+      ORACLE_INTEGRATION: oracleIntegration.target,
+      DISPUTE_RESOLUTION: disputeResolution.target,
+      GOVERNANCE_VOTING: governanceVoting.target,
+      MARKETPLACE: marketplace.target,
+    };
+
+    Object.entries(replacements).forEach(([key, addr]) => {
+      const regex = new RegExp(
+        `${key}:\\s*process\\.env\\\.REACT_APP_${key}_ADDRESS\\s*\\|\\|\\s*'0x\\.\\.\\.'`
+      );
+      if (regex.test(constantsContent)) {
+        constantsContent = constantsContent.replace(regex, `${key}: '${addr}'`);
+      } else {
+        // Fallback: replace simple default '0x...' occurrences for that key if present
+        constantsContent = constantsContent.replace(
+          new RegExp(`${key}:\\s*'0x\\.\\.\\.'`),
+          `${key}: '${addr}'`
+        );
+      }
+    });
+
     fs.writeFileSync(constantsPath, constantsContent);
     console.log("Constants file updated with contract addresses");
   }
@@ -67,10 +187,12 @@ REACT_APP_RPC_URL=http://127.0.0.1:8545
   // Transfer some tokens to test accounts for demo purposes
   console.log("\nTransferring tokens for demo...");
   const amount = ethers.parseEther("1000");
-  
+
   // Transfer to treasury
   await authToken.transfer(treasury.address, amount);
-  console.log(`Transferred ${ethers.formatEther(amount)} AUTH tokens to treasury`);
+  console.log(
+    `Transferred ${ethers.formatEther(amount)} AUTH tokens to treasury`
+  );
 
   console.log("\nDeployment completed!");
   console.log("=".repeat(50));

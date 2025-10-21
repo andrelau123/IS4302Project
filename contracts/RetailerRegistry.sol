@@ -8,35 +8,38 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract RetailerRegistry is AccessControl, Pausable {
-    bytes32 public constant BRAND_MANAGER_ROLE = keccak256("BRAND_MANAGER_ROLE");
-    bytes32 public constant PRODUCT_REGISTRY_ROLE = keccak256("PRODUCT_REGISTRY_ROLE");
-    bytes32 public constant VERIFICATION_MANAGER_ROLE = keccak256("VERIFICATION_MANAGER_ROLE");
+    bytes32 public constant BRAND_MANAGER_ROLE =
+        keccak256("BRAND_MANAGER_ROLE");
+    bytes32 public constant PRODUCT_REGISTRY_ROLE =
+        keccak256("PRODUCT_REGISTRY_ROLE");
+    bytes32 public constant VERIFICATION_MANAGER_ROLE =
+        keccak256("VERIFICATION_MANAGER_ROLE");
 
     struct Retailer {
         bool isAuthorized;
         address retailerAddress;
         string name;
-        uint256 reputationScore;        // Composite score (0-1000)
+        uint256 reputationScore; // Composite score (0-1000)
         uint256 totalVerifications;
         uint256 failedVerifications;
         uint256 registeredAt;
-        uint256 totalProductsHandled;   // Volume metric
-        uint256 totalDisputesReceived;  // Dispute history
-        uint256 totalDisputesLost;      // Quality of disputes
-        uint256 averageResponseTime;    // In seconds
-        uint256 lastActivityTimestamp;  // For decay calculation
-        uint256 consecutiveSuccesses;   // For consistency bonus
+        uint256 totalProductsHandled; // Volume metric
+        uint256 totalDisputesReceived; // Dispute history
+        uint256 totalDisputesLost; // Quality of disputes
+        uint256 averageResponseTime; // In seconds
+        uint256 lastActivityTimestamp; // For decay calculation
+        uint256 consecutiveSuccesses; // For consistency bonus
         uint256 lifetimeRevenueGenerated; // Economic contribution
     }
 
     // Reputation weight configuration (in basis points, sum = 10000)
     struct ReputationWeights {
-        uint16 successRateWeight;      // Default: 4000 (40%)
-        uint16 volumeWeight;           // Default: 1500 (15%)
-        uint16 tenureWeight;           // Default: 1000 (10%)
-        uint16 responseTimeWeight;     // Default: 1000 (10%)
-        uint16 disputeWeight;          // Default: 1500 (15%)
-        uint16 consistencyWeight;      // Default: 1000 (10%)
+        uint16 successRateWeight; // Default: 4000 (40%)
+        uint16 volumeWeight; // Default: 1500 (15%)
+        uint16 tenureWeight; // Default: 1000 (10%)
+        uint16 responseTimeWeight; // Default: 1000 (10%)
+        uint16 disputeWeight; // Default: 1500 (15%)
+        uint16 consistencyWeight; // Default: 1000 (10%)
     }
 
     // Track which products/verifications have been used for reputation
@@ -49,23 +52,24 @@ contract RetailerRegistry is AccessControl, Pausable {
         bool processed;
     }
 
-    ReputationWeights public reputationWeights = ReputationWeights({
-        successRateWeight: 4000,
-        volumeWeight: 1500,
-        tenureWeight: 1000,
-        responseTimeWeight: 1000,
-        disputeWeight: 1500,
-        consistencyWeight: 1000
-    });
+    ReputationWeights public reputationWeights =
+        ReputationWeights({
+            successRateWeight: 4000,
+            volumeWeight: 1500,
+            tenureWeight: 1000,
+            responseTimeWeight: 1000,
+            disputeWeight: 1500,
+            consistencyWeight: 1000
+        });
 
     // Configuration parameters
     uint256 public constant MAX_REPUTATION_SCORE = 1000;
-    uint256 public volumeTierThreshold = 100;       // Products needed for max volume score
-    uint256 public tenureTierThreshold = 365 days;  // Time needed for max tenure score
-    uint256 public optimalResponseTime = 1 days;    // Target response time
-    uint256 public consistencyThreshold = 10;       // Consecutive successes for bonus
+    uint256 public volumeTierThreshold = 100; // Products needed for max volume score
+    uint256 public tenureTierThreshold = 365 days; // Time needed for max tenure score
+    uint256 public optimalResponseTime = 1 days; // Target response time
+    uint256 public consistencyThreshold = 10; // Consecutive successes for bonus
     uint256 public reputationDecayPeriod = 90 days; // Inactivity period before decay
-    uint256 public decayRatePercent = 5;            // 5% decay per period
+    uint256 public decayRatePercent = 5; // 5% decay per period
 
     // Rate limiting for reputation updates
     uint256 public constant MIN_UPDATE_INTERVAL = 1 hours;
@@ -84,15 +88,19 @@ contract RetailerRegistry is AccessControl, Pausable {
     event RetailerAuthorized(address indexed brand, address indexed retailer);
     event RetailerDeauthorized(address indexed brand, address indexed retailer);
     event ReputationUpdated(
-        address indexed retailer, 
-        uint256 newScore, 
+        address indexed retailer,
+        uint256 newScore,
         string updateReason
     );
     event DisputeRecorded(address indexed retailer, bool retailerWon);
     event ResponseTimeRecorded(address indexed retailer, uint256 responseTime);
     event VolumeIncreased(address indexed retailer, uint256 newTotalProducts);
     event ReputationWeightsUpdated(ReputationWeights newWeights);
-    event VerificationProcessed(bytes32 indexed verificationId, address indexed retailer, bool success);
+    event VerificationProcessed(
+        bytes32 indexed verificationId,
+        address indexed retailer,
+        bool success
+    );
     event ProductHandled(bytes32 indexed productId, address indexed retailer);
 
     constructor() {
@@ -112,7 +120,7 @@ contract RetailerRegistry is AccessControl, Pausable {
             isAuthorized: true,
             retailerAddress: retailerAddress,
             name: name,
-            reputationScore: 500,  // Start at middle score
+            reputationScore: 500, // Start at middle score
             totalVerifications: 0,
             failedVerifications: 0,
             registeredAt: block.timestamp,
@@ -156,14 +164,18 @@ contract RetailerRegistry is AccessControl, Pausable {
         bytes32 productId,
         address retailer,
         bool success
-    ) external onlyRole(VERIFICATION_MANAGER_ROLE) nonReentrant whenNotPaused {
+    ) external onlyRole(VERIFICATION_MANAGER_ROLE) whenNotPaused {
         require(retailers[retailer].isAuthorized, "Retailer not registered");
         require(verificationId != bytes32(0), "Invalid verification ID");
-        require(!verificationRecords[verificationId].processed, "Already processed");
+        require(
+            !verificationRecords[verificationId].processed,
+            "Already processed"
+        );
 
         // Rate limiting
         require(
-            block.timestamp >= lastReputationUpdate[retailer] + MIN_UPDATE_INTERVAL,
+            block.timestamp >=
+                lastReputationUpdate[retailer] + MIN_UPDATE_INTERVAL,
             "Rate limited"
         );
 
@@ -183,7 +195,7 @@ contract RetailerRegistry is AccessControl, Pausable {
         Retailer storage r = retailers[retailer];
         r.totalVerifications++;
         r.lastActivityTimestamp = block.timestamp;
-        
+
         if (!success) {
             r.failedVerifications++;
             r.consecutiveSuccesses = 0;
@@ -194,7 +206,7 @@ contract RetailerRegistry is AccessControl, Pausable {
         // Recalculate reputation
         uint256 oldScore = r.reputationScore;
         uint256 newScore = _calculateCompositeReputation(retailer);
-        
+
         // Apply max change limit
         if (newScore > oldScore) {
             uint256 increase = newScore - oldScore;
@@ -207,7 +219,7 @@ contract RetailerRegistry is AccessControl, Pausable {
                 newScore = oldScore - maxReputationChangePerUpdate;
             }
         }
-        
+
         r.reputationScore = newScore;
 
         emit VerificationProcessed(verificationId, retailer, success);
@@ -220,19 +232,19 @@ contract RetailerRegistry is AccessControl, Pausable {
     function recordProductHandling(
         bytes32 productId,
         address retailer
-    ) external onlyRole(PRODUCT_REGISTRY_ROLE) nonReentrant whenNotPaused {
+    ) external onlyRole(PRODUCT_REGISTRY_ROLE) whenNotPaused {
         require(retailers[retailer].isAuthorized, "Retailer not registered");
         require(productId != bytes32(0), "Invalid product ID");
         require(!productHandled[productId], "Product already counted");
 
         productHandled[productId] = true;
-        
+
         Retailer storage r = retailers[retailer];
         r.totalProductsHandled++;
         r.lastActivityTimestamp = block.timestamp;
-        
+
         emit ProductHandled(productId, retailer);
-        
+
         // Recalculate reputation with new volume
         uint256 newScore = _calculateCompositeReputation(retailer);
         r.reputationScore = newScore;
@@ -252,12 +264,14 @@ contract RetailerRegistry is AccessControl, Pausable {
         if (r.averageResponseTime == 0) {
             r.averageResponseTime = responseTime;
         } else {
-            r.averageResponseTime = (r.averageResponseTime * 7 + responseTime * 3) / 10;
+            r.averageResponseTime =
+                (r.averageResponseTime * 7 + responseTime * 3) /
+                10;
         }
         r.lastActivityTimestamp = block.timestamp;
 
         emit ResponseTimeRecorded(retailer, responseTime);
-        
+
         uint256 newScore = _calculateCompositeReputation(retailer);
         r.reputationScore = newScore;
         emit ReputationUpdated(retailer, newScore, "Response time updated");
@@ -279,7 +293,7 @@ contract RetailerRegistry is AccessControl, Pausable {
         r.lastActivityTimestamp = block.timestamp;
 
         emit DisputeRecorded(retailer, retailerWon);
-        
+
         uint256 newScore = _calculateCompositeReputation(retailer);
         r.reputationScore = newScore;
         emit ReputationUpdated(retailer, newScore, "Dispute recorded");
@@ -296,7 +310,7 @@ contract RetailerRegistry is AccessControl, Pausable {
 
         r.lifetimeRevenueGenerated += revenueAmount;
         r.lastActivityTimestamp = block.timestamp;
-        
+
         uint256 newScore = _calculateCompositeReputation(retailer);
         r.reputationScore = newScore;
         emit ReputationUpdated(retailer, newScore, "Revenue recorded");
@@ -310,84 +324,123 @@ contract RetailerRegistry is AccessControl, Pausable {
     ) external view onlyRole(BRAND_MANAGER_ROLE) {
         require(!requireProductLink, "Use processVerificationResult instead");
         // Deprecated - does nothing
-        retailer; success; // Silence unused variable warnings
+        retailer;
+        success; // Silence unused variable warnings
     }
 
     /// @notice Calculate composite reputation score
-    function _calculateCompositeReputation(address retailer) internal view returns (uint256) {
+    function _calculateCompositeReputation(
+        address retailer
+    ) internal view returns (uint256) {
         Retailer storage r = retailers[retailer];
-        
-        uint256 decayMultiplier = _calculateDecayMultiplier(r.lastActivityTimestamp);
-        
-        uint256 successScore = _calculateSuccessRateScore(r.totalVerifications, r.failedVerifications);
+
+        uint256 decayMultiplier = _calculateDecayMultiplier(
+            r.lastActivityTimestamp
+        );
+
+        uint256 successScore = _calculateSuccessRateScore(
+            r.totalVerifications,
+            r.failedVerifications
+        );
         uint256 volumeScore = _calculateVolumeScore(r.totalProductsHandled);
         uint256 tenureScore = _calculateTenureScore(r.registeredAt);
-        uint256 responseScore = _calculateResponseTimeScore(r.averageResponseTime);
-        uint256 disputeScore = _calculateDisputeScore(r.totalDisputesReceived, r.totalDisputesLost);
-        uint256 consistencyScore = _calculateConsistencyScore(r.consecutiveSuccesses);
-        
-        uint256 compositeScore = (
-            successScore * reputationWeights.successRateWeight +
-            volumeScore * reputationWeights.volumeWeight +
-            tenureScore * reputationWeights.tenureWeight +
-            responseScore * reputationWeights.responseTimeWeight +
-            disputeScore * reputationWeights.disputeWeight +
-            consistencyScore * reputationWeights.consistencyWeight
-        ) / 10000;
-        
+        uint256 responseScore = _calculateResponseTimeScore(
+            r.averageResponseTime
+        );
+        uint256 disputeScore = _calculateDisputeScore(
+            r.totalDisputesReceived,
+            r.totalDisputesLost
+        );
+        uint256 consistencyScore = _calculateConsistencyScore(
+            r.consecutiveSuccesses
+        );
+
+        uint256 compositeScore = (successScore *
+            reputationWeights.successRateWeight +
+            volumeScore *
+            reputationWeights.volumeWeight +
+            tenureScore *
+            reputationWeights.tenureWeight +
+            responseScore *
+            reputationWeights.responseTimeWeight +
+            disputeScore *
+            reputationWeights.disputeWeight +
+            consistencyScore *
+            reputationWeights.consistencyWeight) / 10000;
+
         compositeScore = (compositeScore * decayMultiplier) / 100;
-        
-        return compositeScore > MAX_REPUTATION_SCORE ? MAX_REPUTATION_SCORE : compositeScore;
+
+        return
+            compositeScore > MAX_REPUTATION_SCORE
+                ? MAX_REPUTATION_SCORE
+                : compositeScore;
     }
 
-    function _calculateSuccessRateScore(uint256 total, uint256 failed) internal pure returns (uint256) {
+    function _calculateSuccessRateScore(
+        uint256 total,
+        uint256 failed
+    ) internal pure returns (uint256) {
         if (total == 0) return 500;
         uint256 successRate = ((total - failed) * 100) / total;
         return (successRate * 10);
     }
 
-    function _calculateVolumeScore(uint256 productsHandled) internal view returns (uint256) {
+    function _calculateVolumeScore(
+        uint256 productsHandled
+    ) internal view returns (uint256) {
         if (productsHandled >= volumeTierThreshold) return 1000;
         return (productsHandled * 1000) / volumeTierThreshold;
     }
 
-    function _calculateTenureScore(uint256 registeredAt) internal view returns (uint256) {
+    function _calculateTenureScore(
+        uint256 registeredAt
+    ) internal view returns (uint256) {
         uint256 tenure = block.timestamp - registeredAt;
         if (tenure >= tenureTierThreshold) return 1000;
         return (tenure * 1000) / tenureTierThreshold;
     }
 
-    function _calculateResponseTimeScore(uint256 avgResponseTime) internal view returns (uint256) {
+    function _calculateResponseTimeScore(
+        uint256 avgResponseTime
+    ) internal view returns (uint256) {
         if (avgResponseTime == 0) return 500;
         if (avgResponseTime <= optimalResponseTime) return 1000;
         if (avgResponseTime >= optimalResponseTime * 3) return 0;
-        
+
         uint256 excessTime = avgResponseTime - optimalResponseTime;
         uint256 penaltyRange = optimalResponseTime * 2;
         return 1000 - (excessTime * 1000) / penaltyRange;
     }
 
-    function _calculateDisputeScore(uint256 totalDisputes, uint256 disputesLost) internal pure returns (uint256) {
+    function _calculateDisputeScore(
+        uint256 totalDisputes,
+        uint256 disputesLost
+    ) internal pure returns (uint256) {
         if (totalDisputes == 0) return 1000;
-        uint256 disputeWinRate = ((totalDisputes - disputesLost) * 100) / totalDisputes;
+        uint256 disputeWinRate = ((totalDisputes - disputesLost) * 100) /
+            totalDisputes;
         return (disputeWinRate * 10);
     }
 
-    function _calculateConsistencyScore(uint256 consecutiveSuccesses) internal view returns (uint256) {
+    function _calculateConsistencyScore(
+        uint256 consecutiveSuccesses
+    ) internal view returns (uint256) {
         if (consecutiveSuccesses < consistencyThreshold) {
             return (consecutiveSuccesses * 1000) / consistencyThreshold;
         }
         return 1000;
     }
 
-    function _calculateDecayMultiplier(uint256 lastActivity) internal view returns (uint256) {
+    function _calculateDecayMultiplier(
+        uint256 lastActivity
+    ) internal view returns (uint256) {
         uint256 inactivePeriod = block.timestamp - lastActivity;
         if (inactivePeriod < reputationDecayPeriod) return 100;
-        
+
         uint256 decayPeriods = inactivePeriod / reputationDecayPeriod;
         uint256 totalDecay = decayPeriods * decayRatePercent;
         if (totalDecay > 50) totalDecay = 50;
-        
+
         return 100 - totalDecay;
     }
 
@@ -395,12 +448,16 @@ contract RetailerRegistry is AccessControl, Pausable {
         address brand,
         address retailer
     ) external view returns (bool) {
-        return retailers[retailer].isAuthorized && brandAuthorizations[brand][retailer];
+        return
+            retailers[retailer].isAuthorized &&
+            brandAuthorizations[brand][retailer];
     }
 
-    function getReputationBreakdown(address retailer) 
-        external 
-        view 
+    function getReputationBreakdown(
+        address retailer
+    )
+        external
+        view
         returns (
             uint256 successScore,
             uint256 volumeScore,
@@ -410,91 +467,91 @@ contract RetailerRegistry is AccessControl, Pausable {
             uint256 consistencyScore,
             uint256 decayMultiplier,
             uint256 compositeScore
-        ) 
+        )
     {
         Retailer storage r = retailers[retailer];
         require(r.isAuthorized, "Retailer not registered");
-        
+
         decayMultiplier = _calculateDecayMultiplier(r.lastActivityTimestamp);
-        successScore = _calculateSuccessRateScore(r.totalVerifications, r.failedVerifications);
+        successScore = _calculateSuccessRateScore(
+            r.totalVerifications,
+            r.failedVerifications
+        );
         volumeScore = _calculateVolumeScore(r.totalProductsHandled);
         tenureScore = _calculateTenureScore(r.registeredAt);
         responseScore = _calculateResponseTimeScore(r.averageResponseTime);
-        disputeScore = _calculateDisputeScore(r.totalDisputesReceived, r.totalDisputesLost);
+        disputeScore = _calculateDisputeScore(
+            r.totalDisputesReceived,
+            r.totalDisputesLost
+        );
         consistencyScore = _calculateConsistencyScore(r.consecutiveSuccesses);
         compositeScore = r.reputationScore;
     }
 
     // Admin functions
-    function setMaxReputationChangePerUpdate(uint256 newMax) 
-        external 
-        onlyRole(DEFAULT_ADMIN_ROLE) 
-    {
+    function setMaxReputationChangePerUpdate(
+        uint256 newMax
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newMax > 0 && newMax <= 500, "Invalid max change");
         maxReputationChangePerUpdate = newMax;
     }
 
-    function setRequireProductLink(bool required) 
-        external 
-        onlyRole(DEFAULT_ADMIN_ROLE) 
-    {
+    function setRequireProductLink(
+        bool required
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         requireProductLink = required;
     }
 
-    function updateReputationWeights(ReputationWeights calldata newWeights) 
-        external 
-        onlyRole(DEFAULT_ADMIN_ROLE) 
-    {
+    function updateReputationWeights(
+        ReputationWeights calldata newWeights
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(
             uint256(newWeights.successRateWeight) +
-            uint256(newWeights.volumeWeight) +
-            uint256(newWeights.tenureWeight) +
-            uint256(newWeights.responseTimeWeight) +
-            uint256(newWeights.disputeWeight) +
-            uint256(newWeights.consistencyWeight) == 10000,
+                uint256(newWeights.volumeWeight) +
+                uint256(newWeights.tenureWeight) +
+                uint256(newWeights.responseTimeWeight) +
+                uint256(newWeights.disputeWeight) +
+                uint256(newWeights.consistencyWeight) ==
+                10000,
             "Weights must sum to 10000"
         );
-        
+
         reputationWeights = newWeights;
         emit ReputationWeightsUpdated(newWeights);
     }
 
-    function setVolumeTierThreshold(uint256 newThreshold) 
-        external 
-        onlyRole(DEFAULT_ADMIN_ROLE) 
-    {
+    function setVolumeTierThreshold(
+        uint256 newThreshold
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newThreshold > 0, "Invalid threshold");
         volumeTierThreshold = newThreshold;
     }
 
-    function setTenureTierThreshold(uint256 newThreshold) 
-        external 
-        onlyRole(DEFAULT_ADMIN_ROLE) 
-    {
+    function setTenureTierThreshold(
+        uint256 newThreshold
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newThreshold > 0, "Invalid threshold");
         tenureTierThreshold = newThreshold;
     }
 
-    function setOptimalResponseTime(uint256 newTime) 
-        external 
-        onlyRole(DEFAULT_ADMIN_ROLE) 
-    {
+    function setOptimalResponseTime(
+        uint256 newTime
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newTime > 0, "Invalid time");
         optimalResponseTime = newTime;
     }
 
-    function setConsistencyThreshold(uint256 newThreshold) 
-        external 
-        onlyRole(DEFAULT_ADMIN_ROLE) 
-    {
+    function setConsistencyThreshold(
+        uint256 newThreshold
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newThreshold > 0, "Invalid threshold");
         consistencyThreshold = newThreshold;
     }
 
-    function setDecayParameters(uint256 newPeriod, uint256 newRate) 
-        external 
-        onlyRole(DEFAULT_ADMIN_ROLE) 
-    {
+    function setDecayParameters(
+        uint256 newPeriod,
+        uint256 newRate
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newPeriod > 0, "Invalid period");
         require(newRate <= 100, "Rate too high");
         reputationDecayPeriod = newPeriod;
