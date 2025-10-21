@@ -1,32 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { AiOutlinePlus, AiOutlineSearch, AiOutlineFilter } from 'react-icons/ai';
-import Card from '../components/Common/Card';
-import Button from '../components/Common/Button';
-import Modal from '../components/Common/Modal';
-import LoadingSpinner from '../components/Common/LoadingSpinner';
-import { useProductRegistry } from '../hooks/useContracts';
-import { useWallet } from '../contexts/WalletContext';
-import { ButtonVariants, PRODUCT_STATUS_LABELS, ModalSizes } from '../types';
-import { ethers } from 'ethers';
-import ProductRegistryABI from '../contracts/ProductRegistry.json';
-import marketplaceConfig from '../marketplaceConfig.json';
-import { toast } from 'react-toastify';
+import React, { useState, useEffect } from "react";
+import {
+  AiOutlinePlus,
+  AiOutlineSearch,
+  AiOutlineFilter,
+} from "react-icons/ai";
+import Card from "../components/Common/Card";
+import Button from "../components/Common/Button";
+import Modal from "../components/Common/Modal";
+import LoadingSpinner from "../components/Common/LoadingSpinner";
+import { useProductRegistry } from "../hooks/useContracts";
+import { useWallet } from "../contexts/WalletContext";
+import { ButtonVariants, PRODUCT_STATUS_LABELS, ModalSizes } from "../types";
+import { ethers } from "ethers";
+import ProductRegistryABI from "../contracts/ProductRegistry.json";
+import { toast } from "react-toastify";
 
 const ProductsPage = () => {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [newProduct, setNewProduct] = useState({
-    name: '',
-    description: '',
-    category: '',
-    origin: '',
-    metadataURI: ''
+    name: "",
+    description: "",
+    category: "",
+    origin: "",
+    metadataURI: "",
   });
 
   const { registerProduct, getProduct } = useProductRegistry();
@@ -34,60 +37,61 @@ const ProductsPage = () => {
 
   // Helper function to extract readable name from metadataURI
   const extractProductName = (uri) => {
-    if (!uri) return 'Product';
-    
+    if (!uri) return "Product";
+
     // Remove ipfs:// prefix
-    let name = uri.replace('ipfs://', '').replace('ipfs:', '');
-    
+    let name = uri.replace("ipfs://", "").replace("ipfs:", "");
+
     // Remove Qm prefix if exists
-    name = name.replace(/^Qm/, '');
-    
+    name = name.replace(/^Qm/, "");
+
     // Remove timestamp suffix (last dash and numbers)
-    name = name.replace(/-\d+$/, '');
-    
+    name = name.replace(/-\d+$/, "");
+
     // Replace dashes/underscores with spaces
-    name = name.replace(/[-_]/g, ' ');
-    
+    name = name.replace(/[-_]/g, " ");
+
     // Capitalize first letter of each word
-    name = name.split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
-    
-    return name || 'Product';
+    name = name
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+
+    return name || "Product";
   };
 
   // Mock data for demonstration - replace with actual contract calls
   const mockProducts = [
     {
-      id: '0x123...',
-      name: 'Premium Coffee Beans',
-      description: 'Ethiopian single-origin coffee beans',
-      category: 'Food & Beverage',
+      id: "0x123...",
+      name: "Premium Coffee Beans",
+      description: "Ethiopian single-origin coffee beans",
+      category: "Food & Beverage",
       status: 0, // REGISTERED
-      manufacturer: '0xabc...',
+      manufacturer: "0xabc...",
       registeredAt: Date.now() - 86400000, // 1 day ago
-      isVerified: true
+      isVerified: true,
     },
     {
-      id: '0x456...',
-      name: 'Organic Cotton T-Shirt',
-      description: 'Sustainably sourced organic cotton apparel',
-      category: 'Clothing',
+      id: "0x456...",
+      name: "Organic Cotton T-Shirt",
+      description: "Sustainably sourced organic cotton apparel",
+      category: "Clothing",
       status: 2, // AT_RETAILER
-      manufacturer: '0xdef...',
+      manufacturer: "0xdef...",
       registeredAt: Date.now() - 172800000, // 2 days ago
-      isVerified: true
+      isVerified: true,
     },
     {
-      id: '0x789...',
-      name: 'Artisan Leather Wallet',
-      description: 'Handcrafted genuine leather wallet',
-      category: 'Accessories',
+      id: "0x789...",
+      name: "Artisan Leather Wallet",
+      description: "Handcrafted genuine leather wallet",
+      category: "Accessories",
       status: 1, // IN_TRANSIT
-      manufacturer: '0xghi...',
+      manufacturer: "0xghi...",
       registeredAt: Date.now() - 259200000, // 3 days ago
-      isVerified: false
-    }
+      isVerified: false,
+    },
   ];
 
   useEffect(() => {
@@ -102,17 +106,19 @@ const ProductsPage = () => {
 
   const loadProducts = async () => {
     if (!provider) {
-      console.log('[ProductsPage] Provider not ready');
+      console.log("[ProductsPage] Provider not ready");
       return;
     }
 
     setIsLoading(true);
     try {
-      console.log('[ProductsPage] Loading products from blockchain...');
-      
+      console.log("[ProductsPage] Loading products from blockchain...");
+
       // Create contract instance
+      const productRegistryAddress =
+        process.env.REACT_APP_PRODUCT_REGISTRY_ADDRESS || "";
       const productRegistry = new ethers.Contract(
-        marketplaceConfig.productRegistry,
+        productRegistryAddress,
         ProductRegistryABI.abi,
         provider
       );
@@ -120,32 +126,34 @@ const ProductsPage = () => {
       // Query ProductRegistered events
       const filter = productRegistry.filters.ProductRegistered();
       const events = await productRegistry.queryFilter(filter);
-      
-      console.log(`[ProductsPage] Found ${events.length} product registration events`);
+
+      console.log(
+        `[ProductsPage] Found ${events.length} product registration events`
+      );
 
       const productsData = await Promise.all(
         events.map(async (event) => {
           const productId = event.args.productId;
           const manufacturer = event.args.manufacturer;
           const metadataURI = event.args.metadataURI;
-          
+
           try {
             // Get current product details
             const product = await productRegistry.getProduct(productId);
-            
+
             // Extract readable name from metadataURI
             const productName = extractProductName(metadataURI);
-            
+
             return {
               id: productId,
               name: productName,
               description: `Product ID: ${productId.slice(0, 10)}...`,
-              category: 'General',
+              category: "General",
               status: Number(product.status),
               manufacturer: manufacturer,
               registeredAt: Number(product.registeredAt) * 1000,
               metadataURI: metadataURI,
-              isVerified: product.status >= 0
+              isVerified: product.status >= 0,
             };
           } catch (err) {
             console.error(`Error fetching product ${productId}:`, err);
@@ -155,16 +163,16 @@ const ProductsPage = () => {
       );
 
       // Filter out null values and set products
-      const validProducts = productsData.filter(p => p !== null);
+      const validProducts = productsData.filter((p) => p !== null);
       console.log(`[ProductsPage] Loaded ${validProducts.length} products`);
       setProducts(validProducts);
-      
+
       if (validProducts.length === 0) {
-        toast.info('No products registered yet. Register your first product!');
+        toast.info("No products registered yet. Register your first product!");
       }
     } catch (error) {
-      console.error('[ProductsPage] Error loading products:', error);
-      toast.error('Failed to load products from blockchain');
+      console.error("[ProductsPage] Error loading products:", error);
+      toast.error("Failed to load products from blockchain");
     } finally {
       setIsLoading(false);
     }
@@ -175,17 +183,20 @@ const ProductsPage = () => {
 
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.category.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(
+        (product) =>
+          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.description
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          product.category.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(product => 
-        product.status === parseInt(statusFilter)
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(
+        (product) => product.status === parseInt(statusFilter)
       );
     }
 
@@ -194,70 +205,107 @@ const ProductsPage = () => {
 
   const handleRegisterProduct = async () => {
     if (!isConnected) {
-      toast.error('Please connect your wallet first');
+      toast.error("Please connect your wallet first");
       return;
     }
 
     if (!signer) {
-      toast.error('Wallet signer not available');
+      toast.error("Wallet signer not available");
       return;
     }
 
     if (!newProduct.name) {
-      toast.error('Please enter a product name');
+      toast.error("Please enter a product name");
       return;
     }
 
     try {
-      console.log('[ProductsPage] Registering product...');
-      toast.info('Registering product on blockchain...');
+      console.log("[ProductsPage] Registering product...");
+      toast.info("Registering product on blockchain...");
 
       // Create contract instance with signer
+      const productRegistryAddress =
+        process.env.REACT_APP_PRODUCT_REGISTRY_ADDRESS || "";
+      console.log(
+        "[ProductsPage] Using ProductRegistry address:",
+        productRegistryAddress
+      );
       const productRegistry = new ethers.Contract(
-        marketplaceConfig.productRegistry,
+        productRegistryAddress,
         ProductRegistryABI.abi,
         signer
       );
 
       // Create metadata URI from product details
-      const metadataURI = newProduct.metadataURI || `ipfs://${newProduct.name.replace(/\s+/g, '-')}-${Date.now()}`;
-      
-      console.log('[ProductsPage] Calling registerProduct with URI:', metadataURI);
+      const metadataURI =
+        newProduct.metadataURI ||
+        `ipfs://${newProduct.name.replace(/\s+/g, "-")}-${Date.now()}`;
+
+      console.log(
+        "[ProductsPage] Calling registerProduct with URI:",
+        metadataURI
+      );
 
       // Call registerProduct on blockchain
       const tx = await productRegistry.registerProduct(metadataURI);
-      
-      toast.info('Transaction submitted! Waiting for confirmation...');
-      console.log('[ProductsPage] Transaction hash:', tx.hash);
-      
+
+      toast.info("Transaction submitted! Waiting for confirmation...");
+      console.log("[ProductsPage] Transaction hash:", tx.hash);
+
       // Wait for transaction to be mined
       const receipt = await tx.wait();
-      console.log('[ProductsPage] Transaction confirmed!', receipt);
+      console.log("[ProductsPage] Transaction confirmed!", receipt);
 
       toast.success(`Product "${newProduct.name}" registered successfully!`);
 
       // Reload products from blockchain
       await loadProducts();
-      
+
       // Reset form and close modal
       setShowRegisterModal(false);
-      setNewProduct({ name: '', description: '', category: '', origin: '', metadataURI: '' });
-      
+      setNewProduct({
+        name: "",
+        description: "",
+        category: "",
+        origin: "",
+        metadataURI: "",
+      });
     } catch (error) {
-      console.error('[ProductsPage] Error registering product:', error);
-      
-      if (error.code === 'ACTION_REJECTED') {
-        toast.error('Transaction was rejected');
-      } else if (error.message?.includes('MANUFACTURER_ROLE')) {
-        toast.error('You need MANUFACTURER_ROLE to register products. Contact admin.');
+      console.error("[ProductsPage] Error registering product:", error);
+
+      if (error.code === "ACTION_REJECTED") {
+        toast.error("Transaction was rejected");
+      } else if (error.message?.includes("MANUFACTURER_ROLE")) {
+        toast.error(
+          "You need MANUFACTURER_ROLE to register products. Contact admin."
+        );
       } else {
-        toast.error(`Error registering product: ${error.reason || error.message}`);
+        try {
+          const iface = new ethers.Interface(ProductRegistryABI.abi);
+          const encoded =
+            error.data?.data || error.data || error.error?.data?.data;
+
+          if (encoded) {
+            const decoded = iface.parseError(encoded);
+            console.log("Decoded error:", decoded);
+
+            toast.error(`Error registering product: ${decoded.name}`);
+          } else {
+            // Fallback if no encoded error
+            toast.error(error.reason || error.message || "Transaction failed.");
+          }
+        } catch (decodeErr) {
+          console.error("Error decoding revert:", decodeErr);
+          toast.error(error.reason || error.message || "Transaction reverted.");
+        }
       }
     }
   };
 
   const formatAddress = (address) => {
-    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+    return `${address.substring(0, 6)}...${address.substring(
+      address.length - 4
+    )}`;
   };
 
   const handleViewDetails = (product) => {
@@ -271,12 +319,18 @@ const ProductsPage = () => {
 
   const getStatusBadgeColor = (status) => {
     switch (status) {
-      case 0: return 'bg-blue-100 text-blue-800'; // REGISTERED
-      case 1: return 'bg-yellow-100 text-yellow-800'; // IN_TRANSIT
-      case 2: return 'bg-green-100 text-green-800'; // AT_RETAILER
-      case 3: return 'bg-gray-100 text-gray-800'; // SOLD
-      case 4: return 'bg-red-100 text-red-800'; // DISPUTED
-      default: return 'bg-gray-100 text-gray-800';
+      case 0:
+        return "bg-blue-100 text-blue-800"; // REGISTERED
+      case 1:
+        return "bg-yellow-100 text-yellow-800"; // IN_TRANSIT
+      case 2:
+        return "bg-green-100 text-green-800"; // AT_RETAILER
+      case 3:
+        return "bg-gray-100 text-gray-800"; // SOLD
+      case 4:
+        return "bg-red-100 text-red-800"; // DISPUTED
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -284,22 +338,29 @@ const ProductsPage = () => {
     <div className="pt-20 p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Product Registry</h1>
-        <p className="text-gray-600">Manage and track your registered products</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Product Registry
+        </h1>
+        <p className="text-gray-600">
+          Manage and track your registered products
+        </p>
       </div>
 
       {/* Controls */}
       <div className="mb-6 flex flex-col sm:flex-row gap-4">
         {/* Search */}
         <div className="flex-1 relative">
-          <AiOutlineSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none z-10" size={20} />
+          <AiOutlineSearch
+            className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none z-10"
+            size={20}
+          />
           <input
             type="text"
             placeholder="Search products..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full py-3 pr-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
-            style={{ paddingLeft: '3rem' }}
+            style={{ paddingLeft: "3rem" }}
           />
         </div>
 
@@ -338,12 +399,13 @@ const ProductsPage = () => {
         </div>
       ) : filteredProducts.length === 0 ? (
         <Card className="text-center py-12">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            No products found
+          </h3>
           <p className="text-gray-600 mb-4">
-            {products.length === 0 
-              ? "You haven't registered any products yet." 
-              : "No products match your current filters."
-            }
+            {products.length === 0
+              ? "You haven't registered any products yet."
+              : "No products match your current filters."}
           </p>
           {products.length === 0 && (
             <Button
@@ -382,17 +444,25 @@ const ProductsPage = () => {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Status:</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(product.status)}`}>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(
+                        product.status
+                      )}`}
+                    >
                       {PRODUCT_STATUS_LABELS[product.status]}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Manufacturer:</span>
-                    <span className="font-medium">{formatAddress(product.manufacturer)}</span>
+                    <span className="font-medium">
+                      {formatAddress(product.manufacturer)}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Registered:</span>
-                    <span className="font-medium">{formatDate(product.registeredAt)}</span>
+                    <span className="font-medium">
+                      {formatDate(product.registeredAt)}
+                    </span>
                   </div>
                 </div>
 
@@ -426,7 +496,9 @@ const ProductsPage = () => {
             <input
               type="text"
               value={newProduct.name}
-              onChange={(e) => setNewProduct(prev => ({ ...prev, name: e.target.value }))}
+              onChange={(e) =>
+                setNewProduct((prev) => ({ ...prev, name: e.target.value }))
+              }
               className="input-field"
               placeholder="Enter product name"
               required
@@ -439,7 +511,12 @@ const ProductsPage = () => {
             </label>
             <textarea
               value={newProduct.description}
-              onChange={(e) => setNewProduct(prev => ({ ...prev, description: e.target.value }))}
+              onChange={(e) =>
+                setNewProduct((prev) => ({
+                  ...prev,
+                  description: e.target.value,
+                }))
+              }
               rows={3}
               className="input-field"
               placeholder="Describe your product"
@@ -454,7 +531,12 @@ const ProductsPage = () => {
               </label>
               <select
                 value={newProduct.category}
-                onChange={(e) => setNewProduct(prev => ({ ...prev, category: e.target.value }))}
+                onChange={(e) =>
+                  setNewProduct((prev) => ({
+                    ...prev,
+                    category: e.target.value,
+                  }))
+                }
                 className="input-field"
                 required
               >
@@ -474,7 +556,9 @@ const ProductsPage = () => {
               <input
                 type="text"
                 value={newProduct.origin}
-                onChange={(e) => setNewProduct(prev => ({ ...prev, origin: e.target.value }))}
+                onChange={(e) =>
+                  setNewProduct((prev) => ({ ...prev, origin: e.target.value }))
+                }
                 className="input-field"
                 placeholder="Country/region of origin"
               />
@@ -488,7 +572,12 @@ const ProductsPage = () => {
             <input
               type="text"
               value={newProduct.metadataURI}
-              onChange={(e) => setNewProduct(prev => ({ ...prev, metadataURI: e.target.value }))}
+              onChange={(e) =>
+                setNewProduct((prev) => ({
+                  ...prev,
+                  metadataURI: e.target.value,
+                }))
+              }
               className="input-field"
               placeholder="IPFS hash or URL (optional)"
             />
@@ -507,7 +596,11 @@ const ProductsPage = () => {
             <Button
               variant={ButtonVariants.PRIMARY}
               onClick={handleRegisterProduct}
-              disabled={!newProduct.name || !newProduct.description || !newProduct.category}
+              disabled={
+                !newProduct.name ||
+                !newProduct.description ||
+                !newProduct.category
+              }
             >
               Register Product
             </Button>
@@ -545,28 +638,43 @@ const ProductsPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Product ID</label>
+                  <label className="text-sm font-medium text-gray-500">
+                    Product ID
+                  </label>
                   <p className="mt-1 text-sm font-mono text-gray-900 break-all">
                     {selectedProduct.id}
                   </p>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Category</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedProduct.category}</p>
+                  <label className="text-sm font-medium text-gray-500">
+                    Category
+                  </label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {selectedProduct.category}
+                  </p>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Status</label>
+                  <label className="text-sm font-medium text-gray-500">
+                    Status
+                  </label>
                   <p className="mt-1">
-                    <span className={`px-3 py-1 text-sm font-medium rounded-full ${
-                      selectedProduct.status === 0 ? 'bg-blue-100 text-blue-800' :
-                      selectedProduct.status === 1 ? 'bg-yellow-100 text-yellow-800' :
-                      selectedProduct.status === 2 ? 'bg-green-100 text-green-800' :
-                      selectedProduct.status === 3 ? 'bg-purple-100 text-purple-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {PRODUCT_STATUS_LABELS[selectedProduct.status] || 'Unknown'}
+                    <span
+                      className={`px-3 py-1 text-sm font-medium rounded-full ${
+                        selectedProduct.status === 0
+                          ? "bg-blue-100 text-blue-800"
+                          : selectedProduct.status === 1
+                          ? "bg-yellow-100 text-yellow-800"
+                          : selectedProduct.status === 2
+                          ? "bg-green-100 text-green-800"
+                          : selectedProduct.status === 3
+                          ? "bg-purple-100 text-purple-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {PRODUCT_STATUS_LABELS[selectedProduct.status] ||
+                        "Unknown"}
                     </span>
                   </p>
                 </div>
@@ -574,14 +682,18 @@ const ProductsPage = () => {
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Manufacturer</label>
+                  <label className="text-sm font-medium text-gray-500">
+                    Manufacturer
+                  </label>
                   <p className="mt-1 text-sm font-mono text-gray-900">
                     {formatAddress(selectedProduct.manufacturer)}
                   </p>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Registered Date</label>
+                  <label className="text-sm font-medium text-gray-500">
+                    Registered Date
+                  </label>
                   <p className="mt-1 text-sm text-gray-900">
                     {new Date(selectedProduct.registeredAt).toLocaleString()}
                   </p>
@@ -589,7 +701,9 @@ const ProductsPage = () => {
 
                 {selectedProduct.metadataURI && (
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Metadata URI</label>
+                    <label className="text-sm font-medium text-gray-500">
+                      Metadata URI
+                    </label>
                     <p className="mt-1 text-sm font-mono text-gray-900 break-all">
                       {selectedProduct.metadataURI}
                     </p>
@@ -600,22 +714,36 @@ const ProductsPage = () => {
 
             {/* Blockchain Information */}
             <div className="border-t border-gray-200 pt-4">
-              <h4 className="text-sm font-semibold text-gray-900 mb-3">Blockchain Information</h4>
+              <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                Blockchain Information
+              </h4>
               <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Network:</span>
-                  <span className="font-medium text-gray-900">Hardhat Local (Chain ID: 31337)</span>
+                  <span className="font-medium text-gray-900">
+                    Hardhat Local (Chain ID: 31337)
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Contract:</span>
                   <span className="font-mono text-gray-900 text-xs">
-                    {formatAddress(marketplaceConfig.productRegistry)}
+                    {formatAddress(
+                      process.env.REACT_APP_PRODUCT_REGISTRY_ADDRESS || ""
+                    )}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Verification Status:</span>
-                  <span className={`font-medium ${selectedProduct.isVerified ? 'text-green-600' : 'text-yellow-600'}`}>
-                    {selectedProduct.isVerified ? 'Verified on blockchain' : 'Pending verification'}
+                  <span
+                    className={`font-medium ${
+                      selectedProduct.isVerified
+                        ? "text-green-600"
+                        : "text-yellow-600"
+                    }`}
+                  >
+                    {selectedProduct.isVerified
+                      ? "Verified on blockchain"
+                      : "Pending verification"}
                   </span>
                 </div>
               </div>
