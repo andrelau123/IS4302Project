@@ -6,7 +6,9 @@ async function main() {
   console.log("Deploying contracts...");
 
   // Get signers
-  const [deployer, treasury] = await ethers.getSigners();
+  const signers = await ethers.getSigners();
+  const deployer = signers[0];
+  const treasury = signers[1];
 
   console.log("Deploying contracts with the account:", deployer.address);
   console.log(
@@ -248,6 +250,68 @@ async function main() {
       "Could not grant DISTRIBUTOR_ROLE on FeeDistributor:",
       err?.message || err
     );
+  }
+
+  // Ensure deployer has BRAND_MANAGER_ROLE on RetailerRegistry and pre-seed demo retailers
+  try {
+    try {
+      const BRAND_MANAGER_ROLE = await retailerRegistry.BRAND_MANAGER_ROLE();
+      const hasBrandManager = await retailerRegistry.hasRole(
+        BRAND_MANAGER_ROLE,
+        deployer.address
+      );
+      if (!hasBrandManager) {
+        console.log(
+          "Granting BRAND_MANAGER_ROLE to deployer on RetailerRegistry..."
+        );
+        const tx = await retailerRegistry.grantRole(
+          BRAND_MANAGER_ROLE,
+          deployer.address
+        );
+        await tx.wait();
+        console.log(
+          "\u2705 BRAND_MANAGER_ROLE granted to deployer on RetailerRegistry"
+        );
+      } else {
+        console.log(
+          "Deployer already has BRAND_MANAGER_ROLE on RetailerRegistry"
+        );
+      }
+    } catch (err) {
+      console.warn("Could not ensure BRAND_MANAGER_ROLE:", err?.message || err);
+    }
+
+    // Pre-seed last 4 Hardhat signers as demo retailers
+    const retailerAccounts = signers.slice(-4);
+    const demoRetailers = [];
+    for (let i = 0; i < retailerAccounts.length; i++) {
+      const r = retailerAccounts[i];
+      const retailerName = `Demo Retailer ${i + 1}`;
+      try {
+        const tx = await retailerRegistry.registerRetailer(
+          r.address,
+          retailerName
+        );
+        await tx.wait();
+        console.log(`Registered ${retailerName} ${r.address}`);
+        demoRetailers.push({ address: r.address, name: retailerName });
+      } catch (err) {
+        console.warn(`Could not register ${r.address}:`, err?.message || err);
+      }
+    }
+
+    // Write demo retailers to frontend data so UI can load them quickly
+    try {
+      const demoPath = path.join(__dirname, '..', 'frontend', 'src', 'data', 'demoRetailers.json');
+      if (demoRetailers.length > 0) {
+        fs.writeFileSync(demoPath, JSON.stringify({ retailers: demoRetailers }, null, 2));
+        console.log('Wrote demo retailers to frontend/src/data/demoRetailers.json');
+      }
+    } catch (err) {
+      console.warn('Could not write demo retailers file:', err?.message || err);
+    }
+  } catch (err) {
+    console.warn("Error while pre-seeding retailers:", err?.message || err);
   }
 
   // Create frontend environment file with all deployed addresses
