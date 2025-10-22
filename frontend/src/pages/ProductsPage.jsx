@@ -39,8 +39,11 @@ const ProductsPage = () => {
   const extractProductName = (uri) => {
     if (!uri) return "Product";
 
+    // Remove any URI fragment (e.g. #category=...) so it doesn't appear in the name
+    let name = uri.split("#")[0];
+
     // Remove ipfs:// prefix
-    let name = uri.replace("ipfs://", "").replace("ipfs:", "");
+    name = name.replace("ipfs://", "").replace("ipfs:", "");
 
     // Remove Qm prefix if exists
     name = name.replace(/^Qm/, "");
@@ -165,11 +168,67 @@ const ProductsPage = () => {
               console.warn("Could not fetch product history:", historyErr);
             }
 
+            let category = "General";
+            try {
+              if (metadataURI) {
+                const fragIndex = metadataURI.indexOf("#category=");
+                if (fragIndex !== -1) {
+                  const frag = metadataURI.substring(
+                    fragIndex + "#category=".length
+                  );
+                  // Support additional fragment params by splitting on &
+                  category =
+                    decodeURIComponent(frag.split("&")[0]) || "General";
+                } else {
+                  // Attempt to fetch metadata JSON if URI looks like http or ipfs
+                  if (
+                    metadataURI.startsWith("http") ||
+                    metadataURI.startsWith("ipfs://") ||
+                    metadataURI.startsWith("ipfs:")
+                  ) {
+                    let fetchUrl = metadataURI;
+                    if (
+                      metadataURI.startsWith("ipfs://") ||
+                      metadataURI.startsWith("ipfs:")
+                    ) {
+                      // Convert ipfs://<hash> to a public gateway URL
+                      fetchUrl = metadataURI
+                        .replace(/^ipfs:\/\//, "")
+                        .replace(/^ipfs:/, "");
+                      fetchUrl = `https://ipfs.io/ipfs/${fetchUrl}`;
+                    }
+
+                    try {
+                      const resp = await fetch(fetchUrl, { method: "GET" });
+                      if (resp && resp.ok) {
+                        const json = await resp.json();
+                        if (json && json.category) {
+                          category = json.category;
+                        }
+                      }
+                    } catch (fetchErr) {
+                      // ignore fetch errors and keep default
+                      console.debug(
+                        "ProductsPage: metadata fetch failed",
+                        fetchErr
+                      );
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn(
+                "Could not determine product category for",
+                productId,
+                e
+              );
+            }
+
             return {
               id: productId,
               name: productName,
               description: `Product ID: ${productId.slice(0, 10)}...`,
-              category: "General",
+              category: category,
               status: Number(product.status),
               manufacturer: manufacturer,
               registeredAt: Number(product.registeredAt) * 1000,
@@ -257,10 +316,16 @@ const ProductsPage = () => {
         signer
       );
 
-      // Create metadata URI from product details
-      const metadataURI =
+      // Create metadata URI from product details. Persist selected category in the URI fragment
+      let metadataURI =
         newProduct.metadataURI ||
         `ipfs://${newProduct.name.replace(/\s+/g, "-")}-${Date.now()}`;
+      if (newProduct.category) {
+        // Append fragment so we can read category back later without changing contracts
+        const frag = `#category=${encodeURIComponent(newProduct.category)}`;
+        if (!metadataURI.includes("#category="))
+          metadataURI = `${metadataURI}${frag}`;
+      }
 
       console.log(
         "[ProductsPage] Calling registerProduct with URI:",
@@ -294,31 +359,23 @@ const ProductsPage = () => {
     } catch (error) {
       console.error("[ProductsPage] Error registering product:", error);
 
-      if (error.code === "ACTION_REJECTED") {
-        toast.error("Transaction was rejected");
-      } else if (error.message?.includes("MANUFACTURER_ROLE")) {
-        toast.error(
-          "You need MANUFACTURER_ROLE to register products. Contact admin."
-        );
-      } else {
-        try {
-          const iface = new ethers.Interface(ProductRegistryABI.abi);
-          const encoded =
-            error.data?.data || error.data || error.error?.data?.data;
+      try {
+        const iface = new ethers.Interface(ProductRegistryABI.abi);
+        const encoded =
+          error.data?.data || error.data || error.error?.data?.data;
 
-          if (encoded) {
-            const decoded = iface.parseError(encoded);
-            console.log("Decoded error:", decoded);
+        if (encoded) {
+          const decoded = iface.parseError(encoded);
+          console.log("Decoded error:", decoded);
 
-            toast.error(`Error registering product: ${decoded.name}`);
-          } else {
-            // Fallback if no encoded error
-            toast.error(error.reason || error.message || "Transaction failed.");
-          }
-        } catch (decodeErr) {
-          console.error("Error decoding revert:", decodeErr);
-          toast.error(error.reason || error.message || "Transaction reverted.");
+          toast.error(`Error registering product: ${decoded.name}`);
+        } else {
+          // Fallback if no encoded error
+          toast.error(error.reason || error.message || "Transaction failed.");
         }
+      } catch (decodeErr) {
+        console.error("Error decoding revert:", decodeErr);
+        toast.error(error.reason || error.message || "Transaction reverted.");
       }
     }
   };
