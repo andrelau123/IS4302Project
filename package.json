@@ -1,6 +1,14 @@
 {
-  "name": "IS4302Project",
+  "name": "is4302-project",
   "version": "1.0.0",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy": "hardhat run scripts/deploy-with-frontend.js --network localhost",
+    "node": "hardhat node",
+    "setup": "npm install && cd frontend && npm install && cd ..",
+    "start": "npm run node & sleep 5 && npm run deploy && cd frontend && npm start"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
     "@nomicfoundation/hardhat-ethers": "^3.1.0",

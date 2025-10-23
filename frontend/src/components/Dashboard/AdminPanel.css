@@ -1,0 +1,126 @@
+.admin-panel {
+  margin-top: 2rem;
+}
+
+.panel-description {
+  color: #666;
+  margin-bottom: 1.5rem;
+  font-style: italic;
+}
+
+.admin-sections {
+  display: grid;
+  gap: 2rem;
+}
+
+.admin-section {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  background: #f9fafb;
+}
+
+.admin-section h4 {
+  margin: 0 0 1rem 0;
+  color: #374151;
+  font-size: 1.1rem;
+}
+
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.shares-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.input-group small {
+  display: block;
+  color: #6b7280;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.shares-total {
+  padding: 0.75rem;
+  background: #f3f4f6;
+  border-radius: 6px;
+  font-weight: 500;
+  text-align: center;
+  color: #374151;
+}
+
+.distribution-chart {
+  text-align: center;
+}
+
+.distribution-chart h3 {
+  margin-bottom: 1.5rem;
+  color: #374151;
+}
+
+.chart-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.pie-chart {
+  flex-shrink: 0;
+}
+
+.chart-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 200px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.legend-label {
+  flex: 1;
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.legend-value {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #111827;
+}
+
+@media (max-width: 768px) {
+  .shares-inputs {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-container {
+    gap: 1rem;
+  }
+
+  .pie-chart svg {
+    width: 150px;
+    height: 150px;
+  }
+}

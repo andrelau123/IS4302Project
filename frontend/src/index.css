@@ -1,0 +1,178 @@
+@import '@fontsource/poppins/400.css'; /* Regular */
+@import '@fontsource/poppins/500.css'; /* Medium */
+@import '@fontsource/poppins/700.css'; /* Bold */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  @apply bg-background-main min-h-screen;
+  font-family: 'Poppins', sans-serif;
+  margin: 0;
+  padding: 0;
+  color: theme('colors.text-primary');
+}
+
+#root {
+  @apply min-h-screen;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Custom utility classes */
+.use-main-bg {
+  @apply bg-background-main;
+}
+
+.card-container {
+  @apply bg-background-card shadow-card rounded-card p-6;
+}
+
+.card-container:hover {
+  @apply shadow-card-hover;
+}
+
+.button-primary {
+  @apply bg-primary-blue text-white px-6 py-3 rounded-button font-medium hover:bg-primary-blue-hover focus:outline-none focus:ring-2 focus:ring-primary-blue focus:ring-offset-2 transition-colors duration-200;
+}
+
+.button-secondary {
+  @apply bg-secondary-gray text-text-primary px-6 py-3 rounded-button font-medium hover:bg-light-gray focus:outline-none focus:ring-2 focus:ring-dark-gray focus:ring-offset-2 transition-colors duration-200;
+}
+
+.button-success {
+  @apply bg-primary-green text-white px-6 py-3 rounded-button font-medium hover:bg-primary-green-hover focus:outline-none focus:ring-2 focus:ring-success-green focus:ring-offset-2 transition-colors duration-200;
+}
+
+.button-danger {
+  @apply bg-primary-red text-white px-6 py-3 rounded-button font-medium hover:bg-primary-red-hover focus:outline-none focus:ring-2 focus:ring-error-red focus:ring-offset-2 transition-colors duration-200;
+}
+
+.button-warning {
+  @apply bg-yellow-500 text-white px-6 py-3 rounded-button font-medium hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transition-colors duration-200;
+}
+
+.button-outline {
+  @apply bg-transparent text-primary-blue border border-primary-blue px-6 py-3 rounded-button font-medium hover:bg-primary-blue hover:text-white focus:outline-none focus:ring-2 focus:ring-primary-blue focus:ring-offset-2 transition-colors duration-200;
+}
+
+.input-field {
+  @apply w-full px-4 py-3 border border-border-light rounded-button focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent transition-colors duration-200;
+}
+
+.navbar-link {
+  @apply text-text-primary hover:text-primary-blue transition-colors duration-200 font-medium;
+}
+
+.navbar-link.active {
+  @apply text-primary-blue border-b-2 border-primary-blue;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+}
+
+.btn-success {
+  background-color: #28a745;
+  color: white;
+}
+
+.btn-success:hover {
+  background-color: #1e7e34;
+}
+
+.btn-warning {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.btn-warning:hover {
+  background-color: #e0a800;
+}
+
+.input-group {
+  margin-bottom: 16px;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+  color: #333;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-4 {
+  gap: 16px;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+.mb-4 {
+  margin-bottom: 16px;
+}
+
+.grid {
+  display: grid;
+  gap: 20px;
+}
+
+.grid-cols-1 {
+  grid-template-columns: 1fr;
+}
+
+.grid-cols-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.grid-cols-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+@media (max-width: 768px) {
+  .grid-cols-2,
+  .grid-cols-3 {
+    grid-template-columns: 1fr;
+  }
+}

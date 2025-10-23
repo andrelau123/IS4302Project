@@ -1,0 +1,34 @@
+{
+  "marketplace": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
+  "productNFT": "0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44",
+  "authToken": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",
+  "feeDistributor": "0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1",
+  "productRegistry": "0x59b670e9fA9D0A427751Af201D676719a970857b",
+  "retailerRegistry": "0xc6e7DF5E7b4f2A278906862b61205850344D4e7d",
+  "listings": [
+    {
+      "tokenId": "1",
+      "name": "Premium Coffee Beans",
+      "price": "0.5",
+      "seller": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+    },
+    {
+      "tokenId": "2",
+      "name": "Organic Cotton T-Shirt",
+      "price": "0.3",
+      "seller": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+    },
+    {
+      "tokenId": "3",
+      "name": "Artisan Leather Wallet",
+      "price": "0.8",
+      "seller": "0x90F79bf6EB2c4f870365E785982E1f101E93b906"
+    },
+    {
+      "tokenId": "4",
+      "name": "Handmade Ceramic Mug",
+      "price": "0.2",
+      "seller": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+    }
+  ]
+}
