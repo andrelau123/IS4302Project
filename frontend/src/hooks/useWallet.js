@@ -201,7 +201,7 @@ const useWallet = () => {
     if (sdk) {
       initialize();
     }
-  }, [sdk, connected, currentAccount, connectWallet]);
+  }, [sdk, connected]);
 
   // Listen to Account and Chain Changes
   useEffect(() => {
@@ -276,7 +276,7 @@ const useWallet = () => {
         sdk.off("disconnect", handleDisconnect);
       };
     }
-  }, [disconnectWallet, sdk, currentAccount, provider, getBalance]);
+  }, [sdk]);
 
   // Refresh balance periodically
   useEffect(() => {
