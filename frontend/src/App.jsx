@@ -9,6 +9,7 @@ import Dashboard from "./components/Dashboard/Dashboard";
 import ProductsPage from "./pages/ProductsPage";
 import MarketplacePage from "./pages/MarketplacePage";
 import VerificationPage from "./pages/VerificationPage";
+import RetailersPage from "./pages/RetailersPage";
 
 import "./App.css";
 
@@ -25,21 +26,7 @@ function App() {
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/marketplace" element={<MarketplacePage />} />
               <Route path="/verification" element={<VerificationPage />} />
-              <Route
-                path="/retailers"
-                element={
-                  <div className="pt-20 p-6 max-w-7xl mx-auto">
-                    <div className="text-center py-20">
-                      <h1 className="text-3xl font-bold text-gray-900 mb-4">
-                        Retailer Registry
-                      </h1>
-                      <p className="text-gray-600">
-                        Retailer management functionality coming soon...
-                      </p>
-                    </div>
-                  </div>
-                }
-              />
+              <Route path="/retailers" element={<RetailersPage />} />
               {/* Fallback route */}
               <Route
                 path="*"

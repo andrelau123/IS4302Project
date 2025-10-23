@@ -1,0 +1,51 @@
+[
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "retailer",
+        "type": "address"
+      }
+    ],
+    "name": "retailers",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "bool", "name": "isAuthorized", "type": "bool" },
+          { "internalType": "address", "name": "retailerAddress", "type": "address" },
+          { "internalType": "string", "name": "name", "type": "string" },
+          { "internalType": "uint256", "name": "reputationScore", "type": "uint256" },
+          { "internalType": "uint256", "name": "totalVerifications", "type": "uint256" },
+          { "internalType": "uint256", "name": "failedVerifications", "type": "uint256" },
+          { "internalType": "uint256", "name": "registeredAt", "type": "uint256" },
+          { "internalType": "uint256", "name": "totalProductsHandled", "type": "uint256" },
+          { "internalType": "uint256", "name": "totalDisputesReceived", "type": "uint256" },
+          { "internalType": "uint256", "name": "totalDisputesLost", "type": "uint256" },
+          { "internalType": "uint256", "name": "averageResponseTime", "type": "uint256" },
+          { "internalType": "uint256", "name": "lastActivityTimestamp", "type": "uint256" },
+          { "internalType": "uint256", "name": "consecutiveSuccesses", "type": "uint256" },
+          { "internalType": "uint256", "name": "lifetimeRevenueGenerated", "type": "uint256" }
+        ],
+        "internalType": "struct RetailerRegistry.Retailer",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "BRAND_MANAGER_ROLE",
+    "outputs": [
+      { "internalType": "bytes32", "name": "", "type": "bytes32" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]
