@@ -321,6 +321,13 @@ const ProductsPage = () => {
         newProduct.metadataURI ||
         `ipfs://${newProduct.name.replace(/\s+/g, "-")}-${Date.now()}`;
 
+      if (newProduct.category) {
+        const frag = `#category=${encodeURIComponent(newProduct.category)}`;
+        if (!metadataURI.includes("#category=")) {
+          metadataURI = `${metadataURI}${frag}`;
+        }
+      }
+
       console.log(
         "[ProductsPage] Calling registerProduct with URI:",
         metadataURI
