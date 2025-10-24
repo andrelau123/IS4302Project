@@ -398,6 +398,8 @@ IS4302Project/
 - Avoid counterfeit and dangerous products
 
 ### For Retailers
+
+See `docs/ROLES_AND_FLOWS.md` for a concise reference on roles (MANUFACTURER_ROLE, MINTER_ROLE, BRAND_MANAGER_ROLE, TRANSFER_VALIDATOR_ROLE) and the product lifecycle (register → mint → list → purchase).
 - Gain authorization from premium brands
 - Build verifiable reputation score
 - Reduce liability from counterfeit sales
