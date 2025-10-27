@@ -176,3 +176,44 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* Custom scrollbar styles for horizontal navigation */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Smooth scrolling for navigation */
+.overflow-x-auto {
+  scroll-behavior: smooth;
+}
+
+/* Add scroll indicators for better UX */
+.nav-scroll-container {
+  position: relative;
+}
+
+.nav-scroll-container::before,
+.nav-scroll-container::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 20px;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.nav-scroll-container::before {
+  left: 0;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.8), transparent);
+}
+
+.nav-scroll-container::after {
+  right: 0;
+  background: linear-gradient(to left, rgba(255, 255, 255, 0.8), transparent);
+}

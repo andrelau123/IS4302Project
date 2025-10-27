@@ -14,4 +14,5 @@ const Card = ({ children, className = '', hover = false }) => {
 
 Card.propTypes = CardPropTypes;
 
+export { Card };
 export default Card;

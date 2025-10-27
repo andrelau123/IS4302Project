@@ -45,4 +45,5 @@ const Button = ({
 
 Button.propTypes = ButtonPropTypes;
 
+export { Button };
 export default Button;

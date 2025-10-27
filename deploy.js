@@ -4,22 +4,31 @@ const hre = require("hardhat");
 async function main() {
   console.log("Deploying Supply-Chain Authenticity suite...");
 
-  //Deploy AuthToken (utility + staking)
+  const [deployer] = await hre.ethers.getSigners();
+  const treasury = deployer.address; // or set a separate treasury wallet
+
+  //Deploy AuthToken (utility + staking) - No dependencies
   const AuthToken = await hre.ethers.getContractFactory("AuthToken");
   const authToken = await AuthToken.deploy();
   await authToken.waitForDeployment();
   console.log(`AuthToken deployed at: ${authToken.target}`);
 
-  //Deploy ProductRegistry
+  //Deploy RetailerRegistry - No dependencies
+  const RetailerRegistry = await hre.ethers.getContractFactory("RetailerRegistry");
+  const retailerRegistry = await RetailerRegistry.deploy();
+  await retailerRegistry.waitForDeployment();
+  console.log(`RetailerRegistry deployed at: ${retailerRegistry.target}`);
+
+  //Deploy ProductRegistry - Requires RetailerRegistry
   const ProductRegistry = await hre.ethers.getContractFactory("ProductRegistry");
-  const productRegistry = await ProductRegistry.deploy();
+  const productRegistry = await ProductRegistry.deploy(
+    retailerRegistry.target,
+    deployer.address // admin
+  );
   await productRegistry.waitForDeployment();
   console.log(`ProductRegistry deployed at: ${productRegistry.target}`);
 
   //Deploy FeeDistributor (authToken + treasury + admin)
-  const [deployer] = await hre.ethers.getSigners();
-  const treasury = deployer.address; // or set a separate treasury wallet
-
   const FeeDistributor = await hre.ethers.getContractFactory("FeeDistributor");
   const feeDistributor = await FeeDistributor.deploy(
     authToken.target,
@@ -30,12 +39,11 @@ async function main() {
   console.log(`FeeDistributor deployed at: ${feeDistributor.target}`);
 
 
-  //Deploy ProductNFT (registry + admin + royalty receiver)
+  //Deploy ProductNFT (requires ProductRegistry and RetailerRegistry)
   const ProductNFT = await hre.ethers.getContractFactory("ProductNFT");
   const productNFT = await ProductNFT.deploy(
     productRegistry.target,
-    deployer.address, // admin
-    treasury // royalty receiver
+    retailerRegistry.target
   );
   await productNFT.waitForDeployment();
   console.log(`ProductNFT deployed at: ${productNFT.target}`);
@@ -58,6 +66,7 @@ async function main() {
   📜 Deployment Summary:
   ─────────────────────────────
   AuthToken       : ${authToken.target}
+  RetailerRegistry: ${retailerRegistry.target}
   ProductRegistry : ${productRegistry.target}
   FeeDistributor  : ${feeDistributor.target}
   ProductNFT      : ${productNFT.target}

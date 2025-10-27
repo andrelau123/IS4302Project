@@ -36,8 +36,18 @@ const AdminPanel = ({
       treasury: distributionShares?.treasury ?? 0,
     };
 
-    setSharesForm(safeShares);
-  }, [distributionShares]);
+    // Only update if values have actually changed
+    setSharesForm(prevShares => {
+      if (
+        prevShares.verifier !== safeShares.verifier ||
+        prevShares.brand !== safeShares.brand ||
+        prevShares.treasury !== safeShares.treasury
+      ) {
+        return safeShares;
+      }
+      return prevShares;
+    });
+  }, [distributionShares?.verifier, distributionShares?.brand, distributionShares?.treasury]);
 
   const handleDistributionSubmit = async (e) => {
     e.preventDefault();

@@ -70,6 +70,14 @@ const Dashboard = () => {
 
   const quickActions = [
     {
+      title: 'System Overview',
+      description: 'Comprehensive guide to all contracts and features',
+      icon: <AiOutlineBarChart size={24} />,
+      link: '/overview',
+      color: 'bg-indigo-500 hover:bg-indigo-600',
+      featured: true
+    },
+    {
       title: 'Register Product',
       description: 'Add a new product to the registry',
       icon: <FaBoxes size={24} />,

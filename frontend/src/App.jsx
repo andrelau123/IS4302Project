@@ -6,10 +6,22 @@ import "react-toastify/dist/ReactToastify.css";
 import { WalletProvider } from "./contexts/WalletContext";
 import Navbar from "./components/Common/Navbar";
 import Dashboard from "./components/Dashboard/Dashboard";
+import ContractOverview from "./components/Dashboard/ContractOverview";
 import ProductsPage from "./pages/ProductsPage";
+import ProductRegistryPage from "./pages/ProductRegistryPage";
 import MarketplacePage from "./pages/MarketplacePage";
 import VerificationPage from "./pages/VerificationPage";
 import RetailersPage from "./pages/RetailersPage";
+
+// New comprehensive contract components
+import ProductRegistryPanel from "./components/ProductRegistry/ProductRegistryPanel";
+import RetailerRegistryPanel from "./components/RetailerRegistry/RetailerRegistryPanel";
+import GovernanceVotingPanel from "./components/GovernanceVoting/GovernanceVotingPanel";
+import DisputeResolutionPanel from "./components/DisputeResolution/DisputeResolutionPanel";
+import VerificationManagerPanel from "./components/VerificationManager/VerificationManagerPanel";
+import OracleIntegrationPanel from "./components/OracleIntegration/OracleIntegrationPanel";
+import FeeDistributorPanel from "./components/FeeDistributor/FeeDistributorPanel";
+import ProductNFTPanel from "./components/ProductNFT/ProductNFTPanel";
 
 import "./App.css";
 
@@ -23,10 +35,55 @@ function App() {
           <main className="relative">
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/overview" element={<ContractOverview />} />
               <Route path="/products" element={<ProductsPage />} />
+              <Route path="/productregistry" element={<ProductRegistryPage />} />
               <Route path="/marketplace" element={<MarketplacePage />} />
               <Route path="/verification" element={<VerificationPage />} />
               <Route path="/retailers" element={<RetailersPage />} />
+              
+              {/* New comprehensive contract interfaces */}
+              <Route path="/product-registry" element={
+                <div className="pt-20 p-6 max-w-7xl mx-auto">
+                  <ProductRegistryPanel />
+                </div>
+              } />
+              <Route path="/retailer-registry" element={
+                <div className="pt-20 p-6 max-w-7xl mx-auto">
+                  <RetailerRegistryPanel />
+                </div>
+              } />
+              <Route path="/governance" element={
+                <div className="pt-20 p-6 max-w-7xl mx-auto">
+                  <GovernanceVotingPanel />
+                </div>
+              } />
+              <Route path="/disputes" element={
+                <div className="pt-20 p-6 max-w-7xl mx-auto">
+                  <DisputeResolutionPanel />
+                </div>
+              } />
+              <Route path="/verification-manager" element={
+                <div className="pt-20 p-6 max-w-7xl mx-auto">
+                  <VerificationManagerPanel />
+                </div>
+              } />
+              <Route path="/oracle" element={
+                <div className="pt-20 p-6 max-w-7xl mx-auto">
+                  <OracleIntegrationPanel />
+                </div>
+              } />
+              <Route path="/fees" element={
+                <div className="pt-20 p-6 max-w-7xl mx-auto">
+                  <FeeDistributorPanel />
+                </div>
+              } />
+              <Route path="/nfts" element={
+                <div className="pt-20 p-6 max-w-7xl mx-auto">
+                  <ProductNFTPanel />
+                </div>
+              } />
+              
               {/* Fallback route */}
               <Route
                 path="*"
