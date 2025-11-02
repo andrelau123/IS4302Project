@@ -367,6 +367,68 @@ async function main() {
     console.warn("Error while pre-seeding retailers:", err?.message || err);
   }
 
+  // Register accounts 10-15 as verifiers
+  try {
+    console.log("\nRegistering accounts 10-15 as verifiers...");
+    const minStake = await verificationManager.minStakeAmount();
+    console.log(`Minimum stake: ${ethers.formatEther(minStake)} AUTH`);
+
+    for (let i = 10; i <= 15; i++) {
+      const verifier = signers[i];
+      console.log(`\nAccount ${i}: ${verifier.address}`);
+
+      try {
+        // Check if already registered
+        const verifierInfo = await verificationManager.verifiers(
+          verifier.address
+        );
+        if (verifierInfo.isActive) {
+          console.log(`  ✓ Already registered`);
+          continue;
+        }
+
+        // Transfer AUTH tokens if needed
+        const balance = await authToken.balanceOf(verifier.address);
+        if (balance < minStake) {
+          console.log(
+            `  📤 Transferring ${ethers.formatEther(minStake)} AUTH...`
+          );
+          const transferTx = await authToken.transfer(
+            verifier.address,
+            minStake
+          );
+          await transferTx.wait();
+        }
+
+        // Approve VerificationManager
+        console.log(`  🔓 Approving tokens...`);
+        const approveTx = await authToken
+          .connect(verifier)
+          .approve(verificationManager.target, minStake);
+        await approveTx.wait();
+
+        // Register as verifier
+        console.log(`  📝 Registering...`);
+        const registerTx = await verificationManager
+          .connect(verifier)
+          .registerVerifier(minStake);
+        await registerTx.wait();
+
+        console.log(
+          `  ✅ Registered! Staked ${ethers.formatEther(minStake)} AUTH`
+        );
+      } catch (err) {
+        console.warn(
+          `  ⚠️  Could not register Account ${i}:`,
+          err?.message || err
+        );
+      }
+    }
+    console.log("\n✅ Verifier registration complete!");
+  } catch (err) {
+    console.warn("Error while registering verifiers:", err?.message || err);
+  }
+
   // Create frontend environment file with all deployed addresses
   const envContent = `# Contract addresses
 REACT_APP_AUTH_TOKEN_ADDRESS=${authToken.target}
