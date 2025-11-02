@@ -147,11 +147,16 @@ const DisputeResolutionPage = () => {
       // Get all disputes from DisputeCreated events
       const disputeList = [];
       const filter = disputeContract.filters.DisputeCreated();
-      const events = await disputeContract.queryFilter(filter);
+      
+      // Force query from latest block to avoid cache issues
+      const latestBlock = await provider.getBlockNumber();
+      const events = await disputeContract.queryFilter(filter, 0, latestBlock);
 
       for (const event of events) {
+        // Force read from latest block to get fresh data
         const disputeData = await disputeContract.disputes(
-          event.args.disputeId
+          event.args.disputeId,
+          { blockTag: "latest" }
         );
 
         // DisputeStatus enum: 0=None, 1=Open, 2=UnderReview, 3=Resolved, 4=Rejected, 5=Expired
@@ -164,7 +169,7 @@ const DisputeResolutionPage = () => {
           "Expired",
         ];
 
-        disputeList.push({
+        const dispute = {
           disputeId: event.args.disputeId,
           productId: disputeData.productId,
           initiator: event.args.initiator,
@@ -178,7 +183,11 @@ const DisputeResolutionPage = () => {
           votesAgainst: Number(disputeData.votesAgainst),
           inFavor: disputeData.inFavor,
           blockNumber: event.blockNumber,
-        });
+        };
+        
+        console.log(`[DISPUTE] ID: ${dispute.disputeId.slice(0, 10)}... Status: ${dispute.status} (${dispute.statusLabel}), Votes: ${dispute.votesFor} FOR / ${dispute.votesAgainst} AGAINST`);
+        
+        disputeList.push(dispute);
       }
 
       // Sort by timestamp descending (newest first)
@@ -186,7 +195,7 @@ const DisputeResolutionPage = () => {
 
       setDisputes(disputeList);
       setLastRefresh(new Date());
-      console.log(`Loaded ${disputeList.length} dispute(s)`);
+      console.log(`[DISPUTES] Loaded ${disputeList.length} dispute(s)`);
     } catch (err) {
       console.error("Error loading disputes:", err);
     } finally {

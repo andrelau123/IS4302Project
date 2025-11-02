@@ -50,16 +50,34 @@ async function main() {
   ];
   const availableVerifiers = [];
 
+  const minStake = await vm.minStakeAmount();
+  console.log(
+    `[VERIFIERS] Min stake required: ${hre.ethers.formatEther(minStake)} AUTH`
+  );
   console.log("[VERIFIERS] Checking for available verifiers...");
+
   for (let i = 0; i < potentialVerifiers.length; i++) {
     const accountNum = i + 10;
     const verifier = potentialVerifiers[i];
     const hasRole = await vm.hasRole(VERIFIER_ROLE, verifier.address);
     if (hasRole) {
       const verifierInfo = await vm.verifiers(verifier.address);
-      if (verifierInfo.isActive) {
+      const stakedAmount = verifierInfo.stakedAmount;
+      const isEligible = verifierInfo.isActive && stakedAmount >= minStake;
+
+      if (isEligible) {
         availableVerifiers.push(verifier);
-        console.log(`   [ACTIVE] Account ${accountNum}: ${verifier.address}`);
+        console.log(
+          `   [ACTIVE] Account ${accountNum}: ${
+            verifier.address
+          } (${hre.ethers.formatEther(stakedAmount)} AUTH)`
+        );
+      } else if (hasRole && verifierInfo.isActive) {
+        console.log(
+          `   [INSUFFICIENT] Account ${accountNum}: ${
+            verifier.address
+          } (${hre.ethers.formatEther(stakedAmount)} AUTH - below minimum)`
+        );
       }
     }
   }

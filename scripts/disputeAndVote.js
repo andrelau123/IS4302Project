@@ -123,9 +123,30 @@ async function main() {
 
     console.log(`[SUCCESS] Dispute created! ID: ${disputeId}\n`);
   } else {
-    // Use existing dispute
-    disputeId = existingDisputes[0].args.disputeId;
-    console.log(`\n[EXISTING] Using existing dispute: ${disputeId}\n`);
+    // Find an unresolved dispute (Open or UnderReview)
+    let foundUnresolved = false;
+    for (const disputeEvent of existingDisputes) {
+      const checkDisputeId = disputeEvent.args.disputeId;
+      const checkDetails = await dispute.disputes(checkDisputeId);
+
+      // Check if dispute is still open for voting
+      if (checkDetails.status === 1n || checkDetails.status === 2n) {
+        disputeId = checkDisputeId;
+        foundUnresolved = true;
+        console.log(`\n[EXISTING] Using unresolved dispute: ${disputeId}\n`);
+        break;
+      }
+    }
+
+    if (!foundUnresolved) {
+      console.log(
+        "\n[INFO] All existing disputes are already resolved/rejected."
+      );
+      console.log(
+        "[TIP] Create a new dispute from the frontend to test voting.\n"
+      );
+      return;
+    }
   }
 
   // Get dispute details
