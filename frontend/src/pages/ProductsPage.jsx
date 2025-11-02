@@ -31,7 +31,7 @@ const ProductsPage = () => {
     category: "",
     origin: "",
     metadataURI: "",
-    value: "", 
+    value: "",
   });
 
   const { registerProduct, getProduct } = useProductRegistry();
@@ -244,6 +244,7 @@ const ProductsPage = () => {
               category: category,
               status: Number(product.status),
               manufacturer: manufacturer,
+              owner: product.currentOwner, // Add current owner
               registeredAt: Number(product.registeredAt) * 1000,
               metadataURI: metadataURI,
               isVerified,
@@ -294,6 +295,35 @@ const ProductsPage = () => {
     }
 
     setFilteredProducts(filtered);
+  };
+
+  const handleConfirmReceipt = async (product) => {
+    if (!isConnected || !signer) {
+      toast.error("Please connect your wallet");
+      return;
+    }
+
+    try {
+      const productRegistryAddress =
+        process.env.REACT_APP_PRODUCT_REGISTRY_ADDRESS || "";
+      const productRegistry = new ethers.Contract(
+        productRegistryAddress,
+        ProductRegistryABI.abi,
+        signer
+      );
+
+      toast.info("Confirming receipt...");
+      const tx = await productRegistry.confirmReceipt(product.id);
+      await tx.wait();
+
+      toast.success(
+        "Receipt confirmed! Product status updated to 'At Retailer'!"
+      );
+      loadProducts(); // Reload products
+    } catch (error) {
+      console.error("Error confirming receipt:", error);
+      toast.error(error.message || "Failed to confirm receipt");
+    }
   };
 
   const handleRegisterProduct = async () => {
@@ -578,6 +608,20 @@ const ProductsPage = () => {
                       loadProducts(); // Reload products after transfer
                     }}
                   />
+
+                  {/* Confirm Receipt Button - only show if product is InTransit and user owns it */}
+                  {product.status === 1 &&
+                    account &&
+                    product.owner &&
+                    account.toLowerCase() === product.owner.toLowerCase() && (
+                      <Button
+                        variant={ButtonVariants.SUCCESS}
+                        onClick={() => handleConfirmReceipt(product)}
+                        className="w-full bg-green-500 hover:bg-green-600"
+                      >
+                        📦 Confirm Receipt
+                      </Button>
+                    )}
 
                   <Button
                     variant={ButtonVariants.SECONDARY}

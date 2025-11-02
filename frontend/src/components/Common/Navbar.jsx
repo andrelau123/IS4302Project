@@ -105,42 +105,44 @@ const Navbar = () => {
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-1 lg:space-x-4 flex-1 justify-center mx-4">
+          <div className="hidden md:flex items-center space-x-0.5 lg:space-x-2 flex-1 justify-center mx-2">
             {navigationItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center space-x-1 px-2 lg:px-3 py-2 rounded-md text-xs lg:text-sm font-medium transition-colors duration-200 whitespace-nowrap ${
+                className={`flex items-center space-x-1 px-1.5 lg:px-2 py-2 rounded-md text-xs font-medium transition-colors duration-200 whitespace-nowrap ${
                   isActive(item.path)
                     ? "text-primary-blue bg-blue-50 border-b-2 border-primary-blue"
                     : "text-gray-700 hover:text-primary-blue hover:bg-gray-50"
                 }`}
               >
                 {item.icon}
-                <span className="hidden lg:inline">{item.label}</span>
-                <span className="lg:hidden">{item.label.split(" ")[0]}</span>
+                <span className="hidden xl:inline text-xs">{item.label}</span>
+                <span className="xl:hidden text-xs">
+                  {item.label.split(" ")[0]}
+                </span>
               </Link>
             ))}
           </div>
 
           {/* Wallet Section */}
-          <div className="flex items-center space-x-1 lg:space-x-3 flex-shrink-0">
+          <div className="flex items-center space-x-1 flex-shrink-0">
             {/* Network Status */}
             {currentAccount && !isCorrectNetwork && (
-              <div className="hidden lg:flex items-center space-x-1 text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded">
-                <AiOutlineWarning size={14} />
-                <span>Wrong Network</span>
+              <div className="hidden xl:flex items-center space-x-1 text-xs text-yellow-600 bg-yellow-50 px-1.5 py-1 rounded">
+                <AiOutlineWarning size={12} />
+                <span className="text-xs">Wrong</span>
               </div>
             )}
 
             {currentAccount && (
-              <div className="hidden lg:flex items-center space-x-2 text-sm text-gray-600">
+              <div className="hidden xl:flex items-center space-x-1 text-xs text-gray-600">
                 <span className="font-medium text-xs">
                   {formatAddress(currentAccount)}
                 </span>
                 {balance && (
-                  <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                    {formatBalance(balance)} ETH
+                  <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">
+                    {formatBalance(balance)}
                   </span>
                 )}
               </div>
@@ -151,11 +153,11 @@ const Navbar = () => {
               <Button
                 variant={ButtonVariants.WARNING}
                 onClick={switchToHardhatNetwork}
-                className="flex items-center space-x-1 text-xs px-2 py-1"
+                className="flex items-center space-x-1 text-xs px-1.5 py-1"
                 size="sm"
               >
-                <FaNetworkWired size={14} />
-                <span className="hidden lg:inline">Switch</span>
+                <FaNetworkWired size={12} />
+                <span className="hidden xl:inline text-xs">Switch</span>
               </Button>
             )}
 
@@ -165,10 +167,10 @@ const Navbar = () => {
               }
               onClick={handleWalletAction}
               disabled={isConnecting}
-              className="flex items-center space-x-1 lg:space-x-2 text-xs lg:text-sm px-2 lg:px-4 py-2"
+              className="flex items-center space-x-1 text-xs px-2 py-1.5"
             >
-              <AiOutlineWallet size={18} />
-              <span className="hidden sm:inline">
+              <AiOutlineWallet size={16} />
+              <span className="hidden sm:inline text-xs">
                 {isConnecting
                   ? "..."
                   : currentAccount

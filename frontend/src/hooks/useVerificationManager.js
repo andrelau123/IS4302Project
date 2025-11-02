@@ -54,7 +54,7 @@ export default function useVerificationManager() {
           if (authTokenAddress && authTokenAddress !== "0x...") {
             const auth = new ethers.Contract(
               authTokenAddress,
-              AuthTokenABI,
+              AuthTokenABI.abi,
               signer
             );
             const account = await signer.getAddress();

@@ -231,7 +231,7 @@ const VerificationPage = () => {
         return;
       }
 
-      const auth = new ethers.Contract(authAddr, AuthTokenABI, provider);
+      const auth = new ethers.Contract(authAddr, AuthTokenABI.abi, provider);
       const bal = await auth.balanceOf(account);
       const formatted = Number(ethers.formatEther(bal));
       setAuthBalance(formatted);

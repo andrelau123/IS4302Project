@@ -238,7 +238,7 @@ const DisputeResolutionPage = () => {
 
       const authContract = new ethers.Contract(
         authAddress,
-        AuthTokenABI,
+        AuthTokenABI.abi,
         signer
       );
 

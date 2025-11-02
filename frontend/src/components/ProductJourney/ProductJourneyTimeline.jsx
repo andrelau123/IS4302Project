@@ -64,7 +64,14 @@ const ProductJourneyTimeline = ({
       recipient: transfer.to,
       location: transfer.location || "Unknown",
       verificationHash: transfer.verificationHash,
-      status: idx === 0 ? 1 : idx === transferHistory.length - 1 ? 2 : 1,
+      // Use actual product status instead of hardcoding based on index
+      // If from === to (verification record), show current product status
+      status:
+        transfer.from === transfer.to
+          ? product.status
+          : idx === 0
+          ? 1
+          : product.status,
       icon: <AiOutlineTruck size={20} />,
       color: "yellow",
     })),
