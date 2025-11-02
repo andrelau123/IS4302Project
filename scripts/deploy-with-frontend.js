@@ -302,14 +302,67 @@ async function main() {
 
     // Write demo retailers to frontend data so UI can load them quickly
     try {
-      const demoPath = path.join(__dirname, '..', 'frontend', 'src', 'data', 'demoRetailers.json');
+      const demoPath = path.join(
+        __dirname,
+        "..",
+        "frontend",
+        "src",
+        "data",
+        "demoRetailers.json"
+      );
       if (demoRetailers.length > 0) {
-        fs.writeFileSync(demoPath, JSON.stringify({ retailers: demoRetailers }, null, 2));
-        console.log('Wrote demo retailers to frontend/src/data/demoRetailers.json');
+        fs.writeFileSync(
+          demoPath,
+          JSON.stringify({ retailers: demoRetailers }, null, 2)
+        );
+        console.log(
+          "Wrote demo retailers to frontend/src/data/demoRetailers.json"
+        );
       }
     } catch (err) {
-      console.warn('Could not write demo retailers file:', err?.message || err);
+      console.warn("Could not write demo retailers file:", err?.message || err);
     }
+
+    // Authorize accounts 17, 18, 19 as retailers for the manufacturer (deployer/signer[0])
+    console.log(
+      "\nAuthorizing accounts 17-19 as retailers for manufacturer..."
+    );
+    const manufacturer = deployer; // Account 0 has MANUFACTURER_ROLE
+    const retailersToAuthorize = [signers[17], signers[18], signers[19]];
+
+    for (let i = 0; i < retailersToAuthorize.length; i++) {
+      const accountNumber = 17 + i;
+      const retailer = retailersToAuthorize[i];
+
+      try {
+        // Check if already authorized
+        const isAuthorized = await retailerRegistry.isAuthorizedRetailer(
+          manufacturer.address,
+          retailer.address
+        );
+
+        if (isAuthorized) {
+          console.log(
+            `✅ Account ${accountNumber} (${retailer.address}) already authorized`
+          );
+        } else {
+          // Authorize the retailer using the correct function name
+          const tx = await retailerRegistry
+            .connect(deployer) // Use deployer who has BRAND_MANAGER_ROLE
+            .authorizeRetailerForBrand(manufacturer.address, retailer.address);
+          await tx.wait();
+          console.log(
+            `✅ Authorized Account ${accountNumber} (${retailer.address}) for brand ${manufacturer.address}`
+          );
+        }
+      } catch (err) {
+        console.warn(
+          `⚠️  Could not authorize Account ${accountNumber}:`,
+          err?.message || err
+        );
+      }
+    }
+    console.log("✅ Retailer authorization complete!");
   } catch (err) {
     console.warn("Error while pre-seeding retailers:", err?.message || err);
   }

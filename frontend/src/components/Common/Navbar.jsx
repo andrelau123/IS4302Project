@@ -92,49 +92,50 @@ const Navbar = () => {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-lg border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-full mx-auto px-2 sm:px-4 lg:px-6">
         <div className="flex justify-between items-center h-16">
           {/* Logo and Brand */}
-          <div className="flex items-center">
+          <div className="flex items-center flex-shrink-0">
             <Link to="/" className="flex items-center space-x-2">
-              <MdVerified className="text-primary-blue" size={32} />
-              <span className="text-xl font-bold text-gray-900">
+              <MdVerified className="text-primary-blue" size={28} />
+              <span className="text-lg lg:text-xl font-bold text-gray-900">
                 ProductVerify
               </span>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center space-x-1 lg:space-x-4 flex-1 justify-center mx-4">
             {navigationItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+                className={`flex items-center space-x-1 px-2 lg:px-3 py-2 rounded-md text-xs lg:text-sm font-medium transition-colors duration-200 whitespace-nowrap ${
                   isActive(item.path)
                     ? "text-primary-blue bg-blue-50 border-b-2 border-primary-blue"
                     : "text-gray-700 hover:text-primary-blue hover:bg-gray-50"
                 }`}
               >
                 {item.icon}
-                <span>{item.label}</span>
+                <span className="hidden lg:inline">{item.label}</span>
+                <span className="lg:hidden">{item.label.split(" ")[0]}</span>
               </Link>
             ))}
           </div>
 
           {/* Wallet Section */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-1 lg:space-x-3 flex-shrink-0">
             {/* Network Status */}
             {currentAccount && !isCorrectNetwork && (
-              <div className="hidden sm:flex items-center space-x-1 text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded">
+              <div className="hidden lg:flex items-center space-x-1 text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded">
                 <AiOutlineWarning size={14} />
                 <span>Wrong Network</span>
               </div>
             )}
 
             {currentAccount && (
-              <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
-                <span className="font-medium">
+              <div className="hidden lg:flex items-center space-x-2 text-sm text-gray-600">
+                <span className="font-medium text-xs">
                   {formatAddress(currentAccount)}
                 </span>
                 {balance && (
@@ -150,11 +151,11 @@ const Navbar = () => {
               <Button
                 variant={ButtonVariants.WARNING}
                 onClick={switchToHardhatNetwork}
-                className="flex items-center space-x-1 text-xs"
+                className="flex items-center space-x-1 text-xs px-2 py-1"
                 size="sm"
               >
                 <FaNetworkWired size={14} />
-                <span className="hidden sm:inline">Switch Network</span>
+                <span className="hidden lg:inline">Switch</span>
               </Button>
             )}
 
@@ -164,15 +165,15 @@ const Navbar = () => {
               }
               onClick={handleWalletAction}
               disabled={isConnecting}
-              className="flex items-center space-x-2"
+              className="flex items-center space-x-1 lg:space-x-2 text-xs lg:text-sm px-2 lg:px-4 py-2"
             >
-              <AiOutlineWallet size={20} />
+              <AiOutlineWallet size={18} />
               <span className="hidden sm:inline">
                 {isConnecting
-                  ? "Connecting..."
+                  ? "..."
                   : currentAccount
                   ? "Disconnect"
-                  : "Connect Wallet"}
+                  : "Connect"}
               </span>
             </Button>
 

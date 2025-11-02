@@ -74,7 +74,7 @@ const TransferButton = ({ product, onTransferComplete, className = "" }) => {
     try {
       // Get ABI - handle both .abi property and direct array
       const abi = ProductRegistryABI.abi || ProductRegistryABI;
-      
+
       if (!abi || abi.length === 0) {
         throw new Error("Product Registry ABI not found");
       }
@@ -86,50 +86,11 @@ const TransferButton = ({ product, onTransferComplete, className = "" }) => {
       );
 
       // Verify contract has the transferProduct function
-      if (typeof productRegistry.transferProduct !== 'function') {
+      if (typeof productRegistry.transferProduct !== "function") {
         throw new Error("transferProduct function not found in contract");
       }
 
-      // Check if recipient is authorized (if RetailerRegistry is configured)
-      if (CONTRACT_ADDRESSES.RETAILER_REGISTRY && CONTRACT_ADDRESSES.RETAILER_REGISTRY !== "0x...") {
-        try {
-          const RetailerRegistryABI = await import("../../contracts/RetailerRegistry.json");
-          const retailerRegistry = new ethers.Contract(
-            CONTRACT_ADDRESSES.RETAILER_REGISTRY,
-            RetailerRegistryABI.default?.abi || RetailerRegistryABI.default || RetailerRegistryABI,
-            signer
-          );
-
-          const manufacturerAddress = product.manufacturer || currentAddress;
-          const isAuthorized = await retailerRegistry.isAuthorizedRetailer(
-            manufacturerAddress,
-            recipientAddress
-          );
-
-          if (!isAuthorized) {
-            // Ask user if they want to authorize the retailer
-            const shouldAuthorize = window.confirm(
-              `The recipient ${recipientAddress.slice(0,6)}...${recipientAddress.slice(-4)} is not an authorized retailer.\n\n` +
-              `Would you like to authorize them first?\n\n` +
-              `(This requires an additional transaction)`
-            );
-
-            if (shouldAuthorize) {
-              toast.info("Authorizing retailer...");
-              const authTx = await retailerRegistry.authorizeRetailer(recipientAddress);
-              await authTx.wait();
-              toast.success("✅ Retailer authorized!");
-            } else {
-              toast.error("Transfer cancelled - recipient must be authorized");
-              setIsTransferring(false);
-              return;
-            }
-          }
-        } catch (authCheckError) {
-          console.warn("Could not check retailer authorization:", authCheckError);
-          // Continue with transfer anyway - let the contract validate
-        }
-      }      // Generate verification hash
+      // Generate verification hash
       const verificationHash = ethers.keccak256(
         ethers.toUtf8Bytes(`${productId}-${Date.now()}`)
       );
@@ -172,20 +133,10 @@ const TransferButton = ({ product, onTransferComplete, className = "" }) => {
       console.error("Transfer error:", error);
 
       let errorMessage = "Transfer failed";
-      
-      // Check for specific error types
       if (error.reason) {
         errorMessage = error.reason;
-      } else if (error.message?.includes("Unauthorized retailer")) {
-        errorMessage = "❌ Unauthorized Retailer\n\nThe recipient must be authorized before transfer. Please authorize them first or choose a different address.";
-      } else if (error.message?.includes("Not owner")) {
-        errorMessage = "You don't own this product";
       } else if (error.message?.includes("user rejected")) {
         errorMessage = "Transaction rejected by user";
-      } else if (error.data?.message) {
-        errorMessage = error.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
       }
 
       toast.error(errorMessage);
