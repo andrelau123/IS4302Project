@@ -45,10 +45,10 @@ async function main() {
 
   // Get admin for granting roles
   const admin = signers[0];
-  
+
   // Get VERIFIER_ROLE from ProductRegistry
   const PR_VERIFIER_ROLE = await pr.VERIFIER_ROLE();
-  
+
   // Check and grant VERIFIER_ROLE to all verifiers on ProductRegistry
   console.log("[SETUP] Ensuring verifiers have ProductRegistry access...");
   const potentialVerifiers = [
@@ -59,12 +59,14 @@ async function main() {
     signers[14],
     signers[15],
   ];
-  
+
   for (const verifier of potentialVerifiers) {
     try {
       const hasRole = await pr.hasRole(PR_VERIFIER_ROLE, verifier.address);
       if (!hasRole) {
-        await (await pr.connect(admin).grantRole(PR_VERIFIER_ROLE, verifier.address)).wait();
+        await (
+          await pr.connect(admin).grantRole(PR_VERIFIER_ROLE, verifier.address)
+        ).wait();
         console.log(`   [GRANTED] VERIFIER_ROLE to ${verifier.address}`);
       }
     } catch (e) {

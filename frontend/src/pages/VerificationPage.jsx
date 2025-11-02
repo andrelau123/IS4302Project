@@ -318,6 +318,13 @@ const VerificationPage = () => {
         ? productIdInput
         : ethers.hexlify(ethers.toUtf8Bytes(productIdInput));
       const value = ethers.parseEther(productValueInput || "0");
+
+      console.log("[VerificationPage] Requesting verification:");
+      console.log("  Product ID:", pid);
+      console.log("  Product Value Input:", productValueInput);
+      console.log("  Product Value (wei):", value.toString());
+      console.log("  Product Value (AUTH):", ethers.formatEther(value));
+
       const res = await vm.requestVerification(pid, value);
       if (res && res.success) {
         toast.success("Verification requested — updating list");
@@ -332,13 +339,35 @@ const VerificationPage = () => {
 
   const quickRequest = (product) => {
     setProductIdInput(product.productId);
-    // default small value
-    setProductValueInput("0.1");
+
+    // Extract value from metadata URI if available
+    let valueToUse = "0.1"; // default
+    if (product.metadataURI) {
+      console.log(
+        "[VerificationPage] Extracting value from URI:",
+        product.metadataURI
+      );
+      const hashPart = product.metadataURI.split("#")[1];
+      if (hashPart) {
+        console.log("[VerificationPage] Hash part:", hashPart);
+        const params = new URLSearchParams(hashPart);
+        const extractedValue = params.get("value");
+        console.log("[VerificationPage] Extracted value:", extractedValue);
+        if (extractedValue && extractedValue !== "0") {
+          valueToUse = extractedValue;
+        }
+      }
+    }
+
+    console.log("[VerificationPage] Using value:", valueToUse);
+    setProductValueInput(valueToUse);
   };
 
   const extractProductName = (uri) => {
     if (!uri) return "Product";
-    let name = String(uri).replace("ipfs://", "").replace("ipfs:", "");
+    // Remove URI fragment (#category=...&value=...) first
+    let name = String(uri).split("#")[0];
+    name = name.replace("ipfs://", "").replace("ipfs:", "");
     name = name.replace(/^Qm/, "");
     name = name.replace(/-\d+$/, "");
     name = name.replace(/[-_]/g, " ");
@@ -349,6 +378,18 @@ const VerificationPage = () => {
       )
       .join(" ");
     return name || "Product";
+  };
+
+  const extractProductInfo = (uri) => {
+    if (!uri) return { category: "General", value: "N/A" };
+    const hashPart = String(uri).split("#")[1];
+    if (!hashPart) return { category: "General", value: "N/A" };
+
+    const params = new URLSearchParams(hashPart);
+    const category = params.get("category") || "General";
+    const value = params.get("value") || "N/A";
+
+    return { category, value };
   };
 
   const formatDate = (ts) => {
@@ -393,11 +434,17 @@ const VerificationPage = () => {
               Product Value (AUTH token units)
             </label>
             <input
+              type="number"
+              step="0.01"
+              min="0"
               value={productValueInput}
-              onChange={(e) => setProductValueInput(e.target.value)}
-              className="input-field w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              readOnly
+              className="input-field w-full px-4 py-2 border rounded-lg bg-gray-50 cursor-not-allowed"
               placeholder="0.1"
             />
+            <p className="mt-1 text-xs text-gray-500">
+              ℹ️ Value is automatically set from product registration data
+            </p>
           </div>
 
           <div className="bg-white p-3 rounded-lg border border-blue-200">
@@ -453,8 +500,14 @@ const VerificationPage = () => {
                         <div className="text-lg font-semibold text-gray-800 mb-1">
                           {extractProductName(p.metadataURI || p.productId)}
                         </div>
-                        <div className="text-sm text-gray-500 mb-2 break-all">
-                          {String(p.metadataURI || "").slice(0, 60)}...
+                        <div className="text-sm text-gray-600 mb-2">
+                          <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-2">
+                            {extractProductInfo(p.metadataURI).category}
+                          </span>
+                          <span className="text-gray-500">
+                            Value: {extractProductInfo(p.metadataURI).value}{" "}
+                            AUTH
+                          </span>
                         </div>
                         <div className="flex gap-4 text-xs text-gray-400">
                           <span>📅 {formatDate(p.registeredAt)}</span>

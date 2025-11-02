@@ -31,6 +31,7 @@ const ProductsPage = () => {
     category: "",
     origin: "",
     metadataURI: "",
+    value: "", // Product value in AUTH tokens
   });
 
   const { registerProduct, getProduct } = useProductRegistry();
@@ -311,6 +312,11 @@ const ProductsPage = () => {
       return;
     }
 
+    if (!newProduct.value || parseFloat(newProduct.value) <= 0) {
+      toast.error("Please enter a valid product value (greater than 0)");
+      return;
+    }
+
     try {
       console.log("[ProductsPage] Registering product...");
       toast.info("Registering product on blockchain...");
@@ -328,14 +334,17 @@ const ProductsPage = () => {
         signer
       );
 
-      // Create metadata URI from product details. Persist selected category in the URI fragment
+      // Create metadata URI from product details. Persist selected category and value in the URI fragment
       let metadataURI =
         newProduct.metadataURI ||
         `ipfs://${newProduct.name.replace(/\s+/g, "-")}-${Date.now()}`;
 
       // Always add category (default to "General" if not specified)
       const categoryToUse = newProduct.category || "General";
-      const frag = `#category=${encodeURIComponent(categoryToUse)}`;
+      const valueToUse = newProduct.value || "0";
+      const frag = `#category=${encodeURIComponent(
+        categoryToUse
+      )}&value=${encodeURIComponent(valueToUse)}`;
       if (!metadataURI.includes("#category=")) {
         metadataURI = `${metadataURI}${frag}`;
       }
@@ -370,6 +379,7 @@ const ProductsPage = () => {
         category: "",
         origin: "",
         metadataURI: "",
+        value: "",
       });
     } catch (error) {
       console.error("[ProductsPage] Error registering product:", error);
@@ -653,18 +663,36 @@ const ProductsPage = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Origin
+                Product Value (AUTH) *
               </label>
               <input
-                type="text"
-                value={newProduct.origin}
+                type="number"
+                step="0.01"
+                min="0"
+                value={newProduct.value}
                 onChange={(e) =>
-                  setNewProduct((prev) => ({ ...prev, origin: e.target.value }))
+                  setNewProduct((prev) => ({ ...prev, value: e.target.value }))
                 }
                 className="input-field"
-                placeholder="Country/region of origin"
+                placeholder="e.g., 100"
+                required
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Origin
+            </label>
+            <input
+              type="text"
+              value={newProduct.origin}
+              onChange={(e) =>
+                setNewProduct((prev) => ({ ...prev, origin: e.target.value }))
+              }
+              className="input-field"
+              placeholder="Country/region of origin"
+            />
           </div>
 
           <div>
