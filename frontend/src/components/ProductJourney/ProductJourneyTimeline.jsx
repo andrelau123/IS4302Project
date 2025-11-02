@@ -71,12 +71,21 @@ const ProductJourneyTimeline = ({
     ...verifications.map((verification, idx) => ({
       type: "verification",
       timestamp: verification.timestamp || Date.now(),
-      title: verification.status === "failed" ? "Verification Failed" : "Product Verified",
-      description: verification.result || "Authenticity confirmed by verification node",
+      title:
+        verification.status === "failed"
+          ? "Verification Failed"
+          : "Product Verified",
+      description:
+        verification.result || "Authenticity confirmed by verification node",
       actor: verification.verifier || "Verification Node",
       fee: verification.fee,
       status: verification.status === "failed" ? "failed" : "verified",
-      icon: verification.status === "failed" ? <MdWarning size={20} /> : <MdVerified size={20} />,
+      icon:
+        verification.status === "failed" ? (
+          <MdWarning size={20} />
+        ) : (
+          <MdVerified size={20} />
+        ),
       color: verification.status === "failed" ? "red" : "green",
     })),
   ].sort((a, b) => {
@@ -198,7 +207,13 @@ const ProductJourneyTimeline = ({
                     </span>
                   </div>
 
-                  <p className={`mb-3 ${event.status === "failed" ? "text-red-700 font-medium" : "text-gray-700"}`}>
+                  <p
+                    className={`mb-3 ${
+                      event.status === "failed"
+                        ? "text-red-700 font-medium"
+                        : "text-gray-700"
+                    }`}
+                  >
                     {event.description}
                   </p>
 
@@ -269,13 +284,21 @@ const ProductJourneyTimeline = ({
 
                   {/* Verification Badge */}
                   {event.type === "verification" && (
-                    <div className={`mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
-                      event.status === "failed" 
-                        ? "bg-red-100 text-red-800" 
-                        : "bg-green-100 text-green-800"
-                    }`}>
-                      {event.status === "failed" ? <MdWarning /> : <MdVerified />}
-                      {event.status === "failed" ? "Verification Failed" : "Verified Authentic"}
+                    <div
+                      className={`mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
+                        event.status === "failed"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-green-100 text-green-800"
+                      }`}
+                    >
+                      {event.status === "failed" ? (
+                        <MdWarning />
+                      ) : (
+                        <MdVerified />
+                      )}
+                      {event.status === "failed"
+                        ? "Verification Failed"
+                        : "Verified Authentic"}
                     </div>
                   )}
 

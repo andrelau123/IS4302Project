@@ -47,8 +47,8 @@ const Navbar = () => {
       icon: <FaNetworkWired size={20} />,
     },
     {
-      path: "/consumer-verify",
-      label: "Verify Product",
+      path: "/dispute-resolution",
+      label: "Dispute Resolution",
       icon: <MdVerified size={20} />,
     },
     {

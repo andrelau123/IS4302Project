@@ -85,14 +85,15 @@ async function main() {
   await oracleIntegration.waitForDeployment();
   console.log("OracleIntegration deployed to:", oracleIntegration.target);
 
-  // Deploy DisputeResolution (productRegistry, authToken)
+  // Deploy DisputeResolution (productRegistry, authToken, verificationManager)
   console.log("\nDeploying DisputeResolution...");
   const DisputeResolution = await ethers.getContractFactory(
     "DisputeResolution"
   );
   const disputeResolution = await DisputeResolution.deploy(
     productRegistry.target,
-    authToken.target
+    authToken.target,
+    verificationManager.target
   );
   await disputeResolution.waitForDeployment();
   console.log("DisputeResolution deployed to:", disputeResolution.target);

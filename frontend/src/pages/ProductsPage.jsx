@@ -31,7 +31,7 @@ const ProductsPage = () => {
     category: "",
     origin: "",
     metadataURI: "",
-    value: "", // Product value in AUTH tokens
+    value: "", 
   });
 
   const { registerProduct, getProduct } = useProductRegistry();

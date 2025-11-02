@@ -112,9 +112,11 @@ const ProductJourneyPage = () => {
           const vmAddress =
             CONTRACT_ADDRESSES.VERIFICATION_MANAGER ||
             process.env.REACT_APP_VERIFICATION_MANAGER_ADDRESS;
-          
+
           if (vmAddress && vmAddress !== "0x...") {
-            const VerificationManagerABI = await import("../contracts/VerificationManager.json");
+            const VerificationManagerABI = await import(
+              "../contracts/VerificationManager.json"
+            );
             const verificationManager = new ethers.Contract(
               vmAddress,
               VerificationManagerABI.abi,
@@ -129,14 +131,17 @@ const ProductJourneyPage = () => {
               const requestId = event.args.requestId;
               const eventResult = event.args.result; // true = verified, false = failed
               const eventVerifier = event.args.verifier;
-              
+
               const request = await verificationManager.requests(requestId);
-              
+
               // Check if this verification is for our product and failed
-              if (request.productId.toLowerCase() === id.toLowerCase() && 
-                  request.completed && 
-                  !eventResult) { // Use event result, not request.result
-                
+              if (
+                request.productId.toLowerCase() === id.toLowerCase() &&
+                request.completed &&
+                !eventResult
+              ) {
+                // Use event result, not request.result
+
                 // Generate descriptive failure reason
                 const failureReasons = [
                   "Counterfeit product detected - Packaging inconsistencies",
@@ -146,13 +151,14 @@ const ProductJourneyPage = () => {
                   "Material analysis failed - Substandard components detected",
                   "Barcode verification failed - Invalid or duplicated code",
                   "Quality control failure - Product does not meet standards",
-                  "Suspicious origin - Supply chain verification failed"
+                  "Suspicious origin - Supply chain verification failed",
                 ];
-                
+
                 // Use hash of requestId to consistently pick same reason for same request
-                const reasonIndex = parseInt(requestId.slice(2, 10), 16) % failureReasons.length;
+                const reasonIndex =
+                  parseInt(requestId.slice(2, 10), 16) % failureReasons.length;
                 const failureReason = failureReasons[reasonIndex];
-                
+
                 failedVerifications.push({
                   timestamp: Number(request.createdAt) * 1000,
                   verifier: eventVerifier,
@@ -164,12 +170,17 @@ const ProductJourneyPage = () => {
             }
           }
         } catch (vmErr) {
-          console.warn("Could not load failed verifications from VerificationManager:", vmErr);
+          console.warn(
+            "Could not load failed verifications from VerificationManager:",
+            vmErr
+          );
         }
 
         // Combine and sort all verifications by timestamp
-        const allVerifications = [...successfulVerifications, ...failedVerifications]
-          .sort((a, b) => a.timestamp - b.timestamp);
+        const allVerifications = [
+          ...successfulVerifications,
+          ...failedVerifications,
+        ].sort((a, b) => a.timestamp - b.timestamp);
 
         setVerifications(allVerifications);
       } catch (err) {
