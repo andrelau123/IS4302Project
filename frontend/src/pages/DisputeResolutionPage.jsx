@@ -28,6 +28,7 @@ const DisputeResolutionPage = () => {
   const [disputeDescription, setDisputeDescription] = useState("");
   const [disputeEvidence, setDisputeEvidence] = useState("");
   const [isCreatingDispute, setIsCreatingDispute] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState(null);
 
   const formatAddress = (address) => {
     if (!address) return "N/A";
@@ -40,6 +41,18 @@ const DisputeResolutionPage = () => {
       loadAllVerifications();
       loadAllDisputes();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider]);
+
+  // Auto-refresh disputes every 10 seconds to catch vote updates
+  React.useEffect(() => {
+    if (!provider) return;
+
+    const interval = setInterval(() => {
+      loadAllDisputes();
+    }, 10000); // Refresh every 10 seconds
+
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [provider]);
 
@@ -172,6 +185,7 @@ const DisputeResolutionPage = () => {
       disputeList.sort((a, b) => b.createdAt - a.createdAt);
 
       setDisputes(disputeList);
+      setLastRefresh(new Date());
       console.log(`Loaded ${disputeList.length} dispute(s)`);
     } catch (err) {
       console.error("Error loading disputes:", err);
@@ -180,7 +194,7 @@ const DisputeResolutionPage = () => {
     }
   };
 
-  const handleCreateDispute = async (productId) => {
+  const handleCreateDispute = async (productId, requestId) => {
     if (!signer || !isConnected) {
       toast.error("Please connect your wallet first");
       return;
@@ -193,6 +207,11 @@ const DisputeResolutionPage = () => {
 
     if (!disputeEvidence.trim()) {
       toast.error("Please provide evidence URL (e.g., IPFS link, image URL)");
+      return;
+    }
+
+    if (!requestId) {
+      toast.error("Request ID is missing");
       return;
     }
 
@@ -255,6 +274,7 @@ const DisputeResolutionPage = () => {
       toast.info("Creating dispute...");
       const tx = await disputeContract.createDispute(
         productId,
+        requestId,
         disputeDescription,
         disputeEvidence
       );
@@ -279,6 +299,12 @@ const DisputeResolutionPage = () => {
     }
   };
 
+  const handleRefresh = () => {
+    loadAllVerifications();
+    loadAllDisputes();
+    toast.info("Refreshing data...");
+  };
+
   return (
     <div className="pt-20 p-6 max-w-6xl mx-auto">
       {/* Header */}
@@ -292,6 +318,16 @@ const DisputeResolutionPage = () => {
         <p className="text-lg text-gray-600">
           Challenge fraudulent or incorrectly verified products
         </p>
+        {/* Refresh Button */}
+        <div className="mt-4">
+          <Button
+            onClick={handleRefresh}
+            variant={ButtonVariants.SECONDARY}
+            disabled={isLoadingAttempts || isLoadingDisputes}
+          >
+            🔄 Refresh Data
+          </Button>
+        </div>
       </div>
 
       {/* How It Works */}
@@ -713,7 +749,12 @@ const DisputeResolutionPage = () => {
               </Button>
               <Button
                 variant={ButtonVariants.PRIMARY}
-                onClick={() => handleCreateDispute(selectedAttempt.productId)}
+                onClick={() =>
+                  handleCreateDispute(
+                    selectedAttempt.productId,
+                    selectedAttempt.requestId
+                  )
+                }
                 disabled={
                   isCreatingDispute ||
                   !disputeDescription.trim() ||

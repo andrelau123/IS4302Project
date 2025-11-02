@@ -25,6 +25,8 @@ contract DisputeResolution is AccessControl, ReentrancyGuard, Pausable {
     struct Dispute {
         bytes32 disputeId;
         bytes32 productId;
+        bytes32 requestId; // Link to verification request
+        address originalVerifier; // Verifier who did the disputed verification
         address initiator;
         string description;
         string evidenceURI; // IPFS CID
@@ -44,6 +46,7 @@ contract DisputeResolution is AccessControl, ReentrancyGuard, Pausable {
     uint256 public disputeFee = 10 ether; // 10 AUTH (18 decimals)
     uint256 public bondAmount = 5 ether; // 5 AUTH refundable if legitimate
     uint256 public verifierRewardPerVote = 3 ether; // 3 AUTH reward per correct vote (from dispute fee)
+    uint256 public verifierSlashAmount = 100 ether; // 100 AUTH slash for bad verification (10% of 1000 AUTH stake)
     uint8 public requiredVotes = 3;
     uint64 public votingPeriod = 3 days;
 
@@ -70,6 +73,11 @@ contract DisputeResolution is AccessControl, ReentrancyGuard, Pausable {
     event DisputeExpired(bytes32 indexed disputeId);
     event ConfigUpdated(string parameter, uint256 newValue);
     event VerifierRewarded(address indexed verifier, uint256 amount);
+    event VerifierSlashed(
+        address indexed verifier,
+        uint256 amount,
+        bytes32 indexed disputeId
+    );
 
     constructor(
         address _productRegistry,
@@ -91,11 +99,19 @@ contract DisputeResolution is AccessControl, ReentrancyGuard, Pausable {
 
     function createDispute(
         bytes32 productId,
+        bytes32 requestId,
         string calldata description,
         string calldata evidenceURI
     ) external nonReentrant whenNotPaused {
         require(productId != bytes32(0), "Invalid product");
+        require(requestId != bytes32(0), "Invalid request");
         require(bytes(description).length > 0, "Empty description");
+
+        // Get the original verifier from VerificationManager
+        (, , , address assignedVerifier, , , , ) = verificationManager.requests(
+            requestId
+        );
+        require(assignedVerifier != address(0), "No verifier assigned");
 
         // Pay dispute fee + bond
         uint256 totalCost = disputeFee + bondAmount;
@@ -109,6 +125,8 @@ contract DisputeResolution is AccessControl, ReentrancyGuard, Pausable {
         Dispute storage d = disputes[disputeId];
         d.disputeId = disputeId;
         d.productId = productId;
+        d.requestId = requestId;
+        d.originalVerifier = assignedVerifier;
         d.initiator = msg.sender;
         d.description = description;
         d.evidenceURI = evidenceURI;
@@ -186,6 +204,18 @@ contract DisputeResolution is AccessControl, ReentrancyGuard, Pausable {
 
         uint256 refund = 0;
         if (d.inFavor) {
+            // Dispute is valid = verification was wrong!
+            // Slash the bad verifier's stake
+            verificationManager.slashVerifierFromDispute(
+                d.originalVerifier,
+                verifierSlashAmount
+            );
+            emit VerifierSlashed(
+                d.originalVerifier,
+                verifierSlashAmount,
+                disputeId
+            );
+
             // Refund both dispute fee + bond
             refund = disputeFee + bondAmount;
             authToken.transfer(d.initiator, refund);

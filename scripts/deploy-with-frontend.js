@@ -98,6 +98,26 @@ async function main() {
   await disputeResolution.waitForDeployment();
   console.log("DisputeResolution deployed to:", disputeResolution.target);
 
+  // Fund DisputeResolution contract with AUTH tokens for rewards
+  console.log("\nFunding DisputeResolution with AUTH tokens...");
+  const disputeFundAmount = ethers.parseEther("1000"); // 1000 AUTH for rewards
+  let tx = await authToken.transfer(
+    disputeResolution.target,
+    disputeFundAmount
+  );
+  await tx.wait();
+  console.log("✅ DisputeResolution funded with 1000 AUTH");
+
+  // Grant SLASHER_ROLE to DisputeResolution so it can slash bad verifiers
+  console.log("\nGranting SLASHER_ROLE to DisputeResolution...");
+  const SLASHER_ROLE = await verificationManager.SLASHER_ROLE();
+  tx = await verificationManager.grantRole(
+    SLASHER_ROLE,
+    disputeResolution.target
+  );
+  await tx.wait();
+  console.log("✅ DisputeResolution can now slash bad verifiers");
+
   // Deploy GovernanceVoting (authToken, admin)
   console.log("\nDeploying GovernanceVoting...");
   const GovernanceVoting = await ethers.getContractFactory("GovernanceVoting");
