@@ -71,14 +71,13 @@ const ProductJourneyTimeline = ({
     ...verifications.map((verification, idx) => ({
       type: "verification",
       timestamp: verification.timestamp || Date.now(),
-      title: "Product Verified",
-      description:
-        verification.result || "Authenticity confirmed by verification node",
+      title: verification.status === "failed" ? "Verification Failed" : "Product Verified",
+      description: verification.result || "Authenticity confirmed by verification node",
       actor: verification.verifier || "Verification Node",
       fee: verification.fee,
-      status: "verified",
-      icon: <MdVerified size={20} />,
-      color: "green",
+      status: verification.status === "failed" ? "failed" : "verified",
+      icon: verification.status === "failed" ? <MdWarning size={20} /> : <MdVerified size={20} />,
+      color: verification.status === "failed" ? "red" : "green",
     })),
   ].sort((a, b) => {
     const timeA =
@@ -178,16 +177,30 @@ const ProductJourneyTimeline = ({
                 {/* Event Card */}
                 <div className="flex-1 bg-gray-50 rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {event.title}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {event.title}
+                      </h3>
+                      {event.status === "failed" && (
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 border border-red-300">
+                          FAILED
+                        </span>
+                      )}
+                      {event.status === "verified" && (
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-300">
+                          VERIFIED
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs text-gray-500 whitespace-nowrap ml-4">
                       <AiOutlineClockCircle className="inline mr-1" />
                       {formatTimestamp(event.timestamp)}
                     </span>
                   </div>
 
-                  <p className="text-gray-700 mb-3">{event.description}</p>
+                  <p className={`mb-3 ${event.status === "failed" ? "text-red-700 font-medium" : "text-gray-700"}`}>
+                    {event.description}
+                  </p>
 
                   {/* Event Details */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
@@ -256,9 +269,13 @@ const ProductJourneyTimeline = ({
 
                   {/* Verification Badge */}
                   {event.type === "verification" && (
-                    <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
-                      <MdVerified />
-                      Verified Authentic
+                    <div className={`mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
+                      event.status === "failed" 
+                        ? "bg-red-100 text-red-800" 
+                        : "bg-green-100 text-green-800"
+                    }`}>
+                      {event.status === "failed" ? <MdWarning /> : <MdVerified />}
+                      {event.status === "failed" ? "Verification Failed" : "Verified Authentic"}
                     </div>
                   )}
 

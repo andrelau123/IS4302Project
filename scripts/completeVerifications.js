@@ -133,9 +133,25 @@ async function main() {
 
       // Alternate between verified and failed (first = verified, second = failed, etc.)
       const isVerified = completed % 2 === 0;
+
+      // Failure reasons for failed verifications
+      const failureReasons = [
+        "Counterfeit product detected - Packaging inconsistencies",
+        "Serial number mismatch - Does not match manufacturer records",
+        "Tampered security seal - Signs of unauthorized access",
+        "Incomplete documentation - Missing authenticity certificates",
+        "Material analysis failed - Substandard components detected",
+        "Barcode verification failed - Invalid or duplicated code",
+        "Quality control failure - Product does not meet standards",
+        "Suspicious origin - Supply chain verification failed",
+      ];
+
+      const failureReason = failureReasons[completed % failureReasons.length];
       const evidenceURI = isVerified
         ? `ipfs://QmVerified${Date.now()}`
-        : `ipfs://QmFailed${Date.now()}`;
+        : `ipfs://QmFailed${Date.now()}#reason=${encodeURIComponent(
+            failureReason
+          )}`;
 
       // Step 1: Complete verification in VerificationManager
       await (
@@ -169,7 +185,7 @@ async function main() {
       const feeReceived = verifierBalanceAfter - verifierBalanceBefore;
 
       if (isVerified) {
-        console.log(`   [VERIFIED] Product authenticated`);
+        console.log(`   [VERIFIED] ✓ Product authenticated`);
         console.log(
           `   [FEE] Verifier received: ${hre.ethers.formatEther(
             feeReceived
@@ -177,7 +193,8 @@ async function main() {
         );
         verified++;
       } else {
-        console.log(`   [FAILED] Verification failed`);
+        console.log(`   [FAILED] ✗ Verification failed`);
+        console.log(`   [REASON] ${failureReason}`);
         console.log(
           `   [FEE] Verifier received: ${hre.ethers.formatEther(
             feeReceived
