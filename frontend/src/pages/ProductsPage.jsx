@@ -8,6 +8,7 @@ import Card from "../components/Common/Card";
 import Button from "../components/Common/Button";
 import Modal from "../components/Common/Modal";
 import LoadingSpinner from "../components/Common/LoadingSpinner";
+import TransferButton from "../components/Product/TransferButton";
 import { useProductRegistry } from "../hooks/useContracts";
 import { useWallet } from "../contexts/WalletContext";
 import { ButtonVariants, PRODUCT_STATUS_LABELS, ModalSizes } from "../types";
@@ -545,7 +546,16 @@ const ProductsPage = () => {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-gray-200">
+                <div className="pt-4 border-t border-gray-200 space-y-2">
+                  {/* Transfer Button - only show if user owns the product */}
+                  <TransferButton
+                    product={product}
+                    onTransferComplete={() => {
+                      toast.success("Product transferred successfully!");
+                      loadProducts(); // Reload products after transfer
+                    }}
+                  />
+
                   <Button
                     variant={ButtonVariants.SECONDARY}
                     onClick={() => handleViewDetails(product)}
