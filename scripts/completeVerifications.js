@@ -8,7 +8,7 @@ const path = require("path");
  */
 
 async function main() {
-  console.log("\n✅ Complete Verifications (Mixed Results)\n");
+  console.log("\n[VERIFICATION] Complete Verifications (Mixed Results)\n");
 
   const signers = await hre.ethers.getSigners();
 
@@ -22,9 +22,12 @@ async function main() {
   const authAddress = envContent
     .match(/REACT_APP_AUTH_TOKEN_ADDRESS=(.+)/)?.[1]
     ?.trim();
+  const prAddress = envContent
+    .match(/REACT_APP_PRODUCT_REGISTRY_ADDRESS=(.+)/)?.[1]
+    ?.trim();
 
-  if (!vmAddress || !authAddress) {
-    console.error("❌ Contract addresses not found in frontend/.env");
+  if (!vmAddress || !authAddress || !prAddress) {
+    console.error("[ERROR] Contract addresses not found in frontend/.env");
     return;
   }
 
@@ -32,20 +35,54 @@ async function main() {
     "VerificationManager"
   );
   const AuthToken = await hre.ethers.getContractFactory("AuthToken");
-  
+  const ProductRegistry = await hre.ethers.getContractFactory(
+    "ProductRegistry"
+  );
+
   const vm = VerificationManager.attach(vmAddress);
   const auth = AuthToken.attach(authAddress);
+  const pr = ProductRegistry.attach(prAddress);
+
+  // Get admin for granting roles
+  const admin = signers[0];
+  
+  // Get VERIFIER_ROLE from ProductRegistry
+  const PR_VERIFIER_ROLE = await pr.VERIFIER_ROLE();
+  
+  // Check and grant VERIFIER_ROLE to all verifiers on ProductRegistry
+  console.log("[SETUP] Ensuring verifiers have ProductRegistry access...");
+  const potentialVerifiers = [
+    signers[10],
+    signers[11],
+    signers[12],
+    signers[13],
+    signers[14],
+    signers[15],
+  ];
+  
+  for (const verifier of potentialVerifiers) {
+    try {
+      const hasRole = await pr.hasRole(PR_VERIFIER_ROLE, verifier.address);
+      if (!hasRole) {
+        await (await pr.connect(admin).grantRole(PR_VERIFIER_ROLE, verifier.address)).wait();
+        console.log(`   [GRANTED] VERIFIER_ROLE to ${verifier.address}`);
+      }
+    } catch (e) {
+      // Ignore errors for verifiers that don't exist
+    }
+  }
+  console.log("[SETUP] Complete\n");
 
   // Get all verification requests
   const filter = vm.filters.VerificationRequested();
   const events = await vm.queryFilter(filter);
 
   if (events.length === 0) {
-    console.log("❌ No verification requests found.");
+    console.log("[INFO] No verification requests found.");
     return;
   }
 
-  console.log(`📋 Found ${events.length} verification request(s)\n`);
+  console.log(`[INFO] Found ${events.length} verification request(s)\n`);
 
   let completed = 0;
   let skipped = 0;
@@ -66,11 +103,13 @@ async function main() {
 
       // Skip if not assigned
       if (request.assignedVerifier === hre.ethers.ZeroAddress) {
-        console.log(`⚠️  Request ${requestId}: No verifier assigned, skipping`);
+        console.log(
+          `[WARNING] Request ${requestId}: No verifier assigned, skipping`
+        );
         continue;
       }
 
-      console.log(`\n🔍 Request: ${requestId}`);
+      console.log(`\n[REQUEST] ${requestId}`);
       console.log(`   Product: ${request.productId}`);
       console.log(`   Requester: ${request.requester}`);
       console.log(`   Verifier: ${request.assignedVerifier}`);
@@ -83,7 +122,7 @@ async function main() {
       );
 
       if (!verifierSigner) {
-        console.log(`   ⚠️  Verifier signer not found`);
+        console.log(`   [WARNING] Verifier signer not found`);
         continue;
       }
 
@@ -92,45 +131,76 @@ async function main() {
 
       // Alternate between verified and failed (first = verified, second = failed, etc.)
       const isVerified = completed % 2 === 0;
-      const evidenceURI = isVerified 
-        ? `ipfs://QmVerified${Date.now()}` 
+      const evidenceURI = isVerified
+        ? `ipfs://QmVerified${Date.now()}`
         : `ipfs://QmFailed${Date.now()}`;
-      
+
+      // Step 1: Complete verification in VerificationManager
       await (
         await vm
           .connect(verifierSigner)
           .completeVerification(requestId, isVerified, evidenceURI)
       ).wait();
 
+      // Step 2: Record verification in ProductRegistry (only if verified)
+      if (isVerified) {
+        const verificationHash = hre.ethers.keccak256(
+          hre.ethers.toUtf8Bytes(evidenceURI)
+        );
+
+        try {
+          await (
+            await pr
+              .connect(verifierSigner)
+              .recordVerification(request.productId, verificationHash)
+          ).wait();
+          console.log(`   [SUCCESS] Recorded in ProductRegistry`);
+        } catch (e) {
+          console.log(
+            `   [WARNING] Failed to record in ProductRegistry: ${e.message}`
+          );
+        }
+      }
+
       // Get balances after
       const verifierBalanceAfter = await auth.balanceOf(verifierAddress);
       const feeReceived = verifierBalanceAfter - verifierBalanceBefore;
 
       if (isVerified) {
-        console.log(`   ✅ VERIFIED`);
-        console.log(`   💰 Verifier received: ${hre.ethers.formatEther(feeReceived)} AUTH`);
+        console.log(`   [VERIFIED] Product authenticated`);
+        console.log(
+          `   [FEE] Verifier received: ${hre.ethers.formatEther(
+            feeReceived
+          )} AUTH`
+        );
         verified++;
       } else {
-        console.log(`   ❌ FAILED VERIFICATION`);
-        console.log(`   💰 Verifier received: ${hre.ethers.formatEther(feeReceived)} AUTH`);
+        console.log(`   [FAILED] Verification failed`);
+        console.log(
+          `   [FEE] Verifier received: ${hre.ethers.formatEther(
+            feeReceived
+          )} AUTH`
+        );
         failed++;
       }
-      
+
       completed++;
     } catch (e) {
-      console.log(`   ⚠️  Error: ${e.message}`);
+      console.log(`   [ERROR] ${e.message}`);
     }
   }
 
   // Summary
   console.log("\n" + "=".repeat(60));
-  console.log("📊 Summary:");
+  console.log("[SUMMARY]");
   console.log(`   Total Requests: ${events.length}`);
-  console.log(`   ✅ Verified (Authentic): ${verified}`);
-  console.log(`   ❌ Failed Verification: ${failed}`);
-  console.log(`   ⏭️  Skipped (already done): ${skipped}`);
+  console.log(`   Verified (Authentic): ${verified}`);
+  console.log(`   Failed Verification: ${failed}`);
+  console.log(`   Skipped (already done): ${skipped}`);
   console.log("=".repeat(60));
-  console.log("\n✨ Done! Check the Verification Center to see results and fee distribution.");
+  console.log(
+    "\n✨ Done! Check the Verification Center to see results and fee distribution."
+  );
 }
 
 main()

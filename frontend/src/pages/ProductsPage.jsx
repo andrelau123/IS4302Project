@@ -172,14 +172,25 @@ const ProductsPage = () => {
             let category = "General";
             try {
               if (metadataURI) {
+                // Try to extract category from URI fragment first
                 const fragIndex = metadataURI.indexOf("#category=");
                 if (fragIndex !== -1) {
                   const frag = metadataURI.substring(
                     fragIndex + "#category=".length
                   );
                   // Support additional fragment params by splitting on &
-                  category =
-                    decodeURIComponent(frag.split("&")[0]) || "General";
+                  const extractedCategory = decodeURIComponent(
+                    frag.split("&")[0]
+                  );
+                  if (extractedCategory && extractedCategory.trim() !== "") {
+                    category = extractedCategory.trim();
+                  }
+                  console.log(
+                    `Extracted category from fragment for ${productId.slice(
+                      0,
+                      10
+                    )}: "${category}"`
+                  );
                 } else {
                   // Attempt to fetch metadata JSON if URI looks like http or ipfs
                   if (
@@ -322,16 +333,18 @@ const ProductsPage = () => {
         newProduct.metadataURI ||
         `ipfs://${newProduct.name.replace(/\s+/g, "-")}-${Date.now()}`;
 
-      if (newProduct.category) {
-        const frag = `#category=${encodeURIComponent(newProduct.category)}`;
-        if (!metadataURI.includes("#category=")) {
-          metadataURI = `${metadataURI}${frag}`;
-        }
+      // Always add category (default to "General" if not specified)
+      const categoryToUse = newProduct.category || "General";
+      const frag = `#category=${encodeURIComponent(categoryToUse)}`;
+      if (!metadataURI.includes("#category=")) {
+        metadataURI = `${metadataURI}${frag}`;
       }
 
       console.log(
         "[ProductsPage] Calling registerProduct with URI:",
-        metadataURI
+        metadataURI,
+        "Category:",
+        categoryToUse
       );
 
       // Call registerProduct on blockchain

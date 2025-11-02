@@ -49,6 +49,14 @@ const VerificationPage = () => {
         provider
       );
 
+      // Get ProductRegistry address
+      const prAddress =
+        CONTRACT_ADDRESSES.PRODUCT_REGISTRY ||
+        process.env.REACT_APP_PRODUCT_REGISTRY_ADDRESS;
+      const productRegistry = prAddress
+        ? new ethers.Contract(prAddress, ProductRegistryABI.abi, provider)
+        : null;
+
       // Get all VerificationRequested events
       const filter = vmContract.filters.VerificationRequested();
       const events = await vmContract.queryFilter(filter);
@@ -64,9 +72,48 @@ const VerificationPage = () => {
               return null;
             }
 
+            // Fetch product name from ProductRegistry
+            let productName = "Unknown Product";
+            if (productRegistry) {
+              try {
+                const product = await productRegistry.getProduct(
+                  request.productId
+                );
+                const metadataURI = product.metadataURI || "";
+
+                // Extract name from metadata URI
+                if (metadataURI) {
+                  const hashIndex = metadataURI.indexOf("#");
+                  const cleanUri =
+                    hashIndex !== -1
+                      ? metadataURI.substring(0, hashIndex)
+                      : metadataURI;
+
+                  let name = cleanUri
+                    .replace("ipfs://", "")
+                    .replace("ipfs:", "");
+                  name = name.replace(/^Qm/, "");
+                  name = name.replace(/-\d+$/, "");
+                  name = name.replace(/[-_]/g, " ");
+                  name = name
+                    .split(" ")
+                    .map((w) =>
+                      w
+                        ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+                        : ""
+                    )
+                    .join(" ");
+                  productName = name || "Product";
+                }
+              } catch (e) {
+                console.warn("Could not fetch product name:", e);
+              }
+            }
+
             return {
               requestId: requestId,
               productId: request.productId,
+              productName: productName,
               requester: request.requester,
               assignedVerifier: request.assignedVerifier,
               fee: ethers.formatEther(request.fee),
@@ -476,8 +523,11 @@ const VerificationPage = () => {
               >
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
-                    <div className="text-sm text-gray-500 mb-1">Product ID</div>
-                    <div className="font-mono text-sm break-all text-gray-800">
+                    <div className="text-lg font-semibold text-gray-900 mb-2">
+                      {v.productName}
+                    </div>
+                    <div className="text-xs text-gray-500 mb-1">Product ID</div>
+                    <div className="font-mono text-xs break-all text-gray-600">
                       {String(v.productId).slice(0, 30)}...
                     </div>
                   </div>
