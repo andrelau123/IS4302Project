@@ -186,7 +186,12 @@ contract VerificationManager is AccessControl, ReentrancyGuard, Pausable {
         // Only record verification in ProductRegistry if verification passed
         if (result) {
             bytes32 verificationHash = keccak256(
-                abi.encodePacked(r.productId, msg.sender, block.timestamp, result)
+                abi.encodePacked(
+                    r.productId,
+                    msg.sender,
+                    block.timestamp,
+                    result
+                )
             );
             productRegistry.recordVerification(r.productId, verificationHash);
         }

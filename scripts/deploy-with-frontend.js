@@ -121,7 +121,10 @@ async function main() {
   // Grant VERIFIER_ROLE to VerificationManager so it can record verifications
   console.log("\nGranting VERIFIER_ROLE to VerificationManager...");
   const VERIFIER_ROLE = await productRegistry.VERIFIER_ROLE();
-  tx = await productRegistry.grantRole(VERIFIER_ROLE, verificationManager.target);
+  tx = await productRegistry.grantRole(
+    VERIFIER_ROLE,
+    verificationManager.target
+  );
   await tx.wait();
   console.log("✅ VerificationManager can now record verifications");
 

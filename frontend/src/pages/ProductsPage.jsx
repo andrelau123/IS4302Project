@@ -154,9 +154,19 @@ const ProductsPage = () => {
             // Product struct: [productId, manufacturer, currentOwner, status, registeredAt, metadataURI, exists, isVerified]
             // Access by index [7] or by field name
             let isVerified = product[7] || product.isVerified || false;
-            
-            console.log(`Product ${productId.slice(0, 10)}... struct:`, product);
-            console.log(`isVerified by index [7]:`, product[7], 'by name:', product.isVerified, 'final:', isVerified);
+
+            console.log(
+              `Product ${productId.slice(0, 10)}... struct:`,
+              product
+            );
+            console.log(
+              `isVerified by index [7]:`,
+              product[7],
+              "by name:",
+              product.isVerified,
+              "final:",
+              isVerified
+            );
 
             let category = "General";
             try {
