@@ -38,6 +38,7 @@ const ProductJourneyTimeline = ({
   product,
   transferHistory = [],
   verifications = [],
+  disputes = [],
   oracleData = [],
 }) => {
   // Combine all events and sort by timestamp
@@ -108,6 +109,40 @@ const ProductJourneyTimeline = ({
         ),
       color: verification.status === "failed" ? "red" : "green",
     })),
+    ...disputes.map((dispute, idx) => {
+      // Dispute status: 0 = Open, 1 = Resolved (in favor), 2 = Resolved (not in favor), 3 = Rejected
+      const getDisputeStatus = () => {
+        if (dispute.status === 0) return { label: "Open", color: "orange" };
+        if (dispute.status === 1)
+          return { label: "Resolved - In Favor", color: "green" };
+        if (dispute.status === 2)
+          return { label: "Resolved - Not In Favor", color: "red" };
+        if (dispute.status === 3) return { label: "Rejected", color: "gray" };
+        return { label: "Unknown", color: "gray" };
+      };
+
+      const disputeStatus = getDisputeStatus();
+      const isResolved = dispute.status !== 0;
+
+      return {
+        type: "dispute",
+        timestamp: isResolved ? dispute.resolvedAt : dispute.createdAt,
+        title: isResolved
+          ? `Dispute #${dispute.disputeId} ${disputeStatus.label}`
+          : `Dispute #${dispute.disputeId} Created`,
+        description: isResolved
+          ? `Votes: ${dispute.votesFor} in favor, ${dispute.votesAgainst} against`
+          : `Initiated by ${dispute.initiator?.slice(0, 10)}...`,
+        actor: dispute.initiator,
+        verifier: dispute.originalVerifier,
+        disputeId: dispute.disputeId,
+        votesFor: dispute.votesFor,
+        votesAgainst: dispute.votesAgainst,
+        status: disputeStatus.label.toLowerCase(),
+        icon: <MdWarning size={20} />,
+        color: disputeStatus.color,
+      };
+    }),
   ].sort((a, b) => {
     const timeA =
       typeof a.timestamp === "number"
@@ -220,6 +255,27 @@ const ProductJourneyTimeline = ({
                           VERIFIED
                         </span>
                       )}
+                      {event.type === "dispute" && (
+                        <span
+                          className={`px-2 py-1 text-xs font-semibold rounded-full border ${
+                            event.color === "green"
+                              ? "bg-green-100 text-green-800 border-green-300"
+                              : event.color === "red"
+                              ? "bg-red-100 text-red-800 border-red-300"
+                              : event.color === "orange"
+                              ? "bg-orange-100 text-orange-800 border-orange-300"
+                              : "bg-gray-100 text-gray-800 border-gray-300"
+                          }`}
+                        >
+                          {event.status === "open"
+                            ? "OPEN"
+                            : event.status.includes("in favor")
+                            ? "UPHELD"
+                            : event.status === "rejected"
+                            ? "REJECTED"
+                            : "DISMISSED"}
+                        </span>
+                      )}
                     </div>
                     <span className="text-xs text-gray-500 whitespace-nowrap ml-4">
                       <AiOutlineClockCircle className="inline mr-1" />
@@ -322,6 +378,46 @@ const ProductJourneyTimeline = ({
                     </div>
                   )}
 
+                  {/* Dispute Badge */}
+                  {event.type === "dispute" && (
+                    <div className="mt-3 space-y-2">
+                      <div
+                        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
+                          event.color === "green"
+                            ? "bg-green-100 text-green-800"
+                            : event.color === "red"
+                            ? "bg-red-100 text-red-800"
+                            : event.color === "orange"
+                            ? "bg-orange-100 text-orange-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        <MdWarning />
+                        {event.status}
+                      </div>
+                      {event.verifier && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-gray-600">
+                            Original Verifier:{" "}
+                            <span className="font-mono text-gray-800">
+                              {formatAddress(event.verifier)}
+                            </span>
+                          </span>
+                        </div>
+                      )}
+                      {event.votesFor !== undefined && (
+                        <div className="flex gap-3 text-xs">
+                          <span className="text-green-600 font-medium">
+                            ✓ {event.votesFor} For
+                          </span>
+                          <span className="text-red-600 font-medium">
+                            ✗ {event.votesAgainst} Against
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Status Badge for transfers */}
                   {event.type === "transfer" && event.status !== undefined && (
                     <div
@@ -342,7 +438,7 @@ const ProductJourneyTimeline = ({
 
       {/* Summary Stats */}
       <div className="mt-8 pt-6 border-t border-gray-200">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-600">
               {transferHistory.length}
@@ -354,6 +450,12 @@ const ProductJourneyTimeline = ({
               {verifications.length}
             </div>
             <div className="text-sm text-gray-600">Verifications</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-red-600">
+              {disputes.length}
+            </div>
+            <div className="text-sm text-gray-600">Disputes</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-purple-600">

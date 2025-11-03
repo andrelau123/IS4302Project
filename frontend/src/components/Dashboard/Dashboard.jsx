@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
   AiOutlineShop,
   AiOutlineSafetyCertificate,
-  AiOutlineUser,
   AiOutlineBarChart,
   AiOutlineWallet,
   AiOutlineTrophy,
@@ -74,13 +73,6 @@ const Dashboard = () => {
       icon: <AiOutlineSafetyCertificate size={24} />,
       link: "/verification",
       color: "bg-purple-500 hover:bg-purple-600",
-    },
-    {
-      title: "Manage Retailers",
-      description: "View and manage retailer registry",
-      icon: <AiOutlineUser size={24} />,
-      link: "/retailers",
-      color: "bg-orange-500 hover:bg-orange-600",
     },
   ];
 

@@ -118,6 +118,19 @@ async function main() {
   await tx.wait();
   console.log("✅ DisputeResolution can now slash bad verifiers");
 
+  // Grant VERIFIER_ROLE to VerificationManager so it can record verifications
+  console.log("\nGranting VERIFIER_ROLE to VerificationManager...");
+  const VERIFIER_ROLE = await productRegistry.VERIFIER_ROLE();
+  tx = await productRegistry.grantRole(VERIFIER_ROLE, verificationManager.target);
+  await tx.wait();
+  console.log("✅ VerificationManager can now record verifications");
+
+  // Grant VERIFIER_ROLE to DisputeResolution so it can mark products as disputed
+  console.log("\nGranting VERIFIER_ROLE to DisputeResolution...");
+  tx = await productRegistry.grantRole(VERIFIER_ROLE, disputeResolution.target);
+  await tx.wait();
+  console.log("✅ DisputeResolution can now mark products as disputed");
+
   // Deploy GovernanceVoting (authToken, admin)
   console.log("\nDeploying GovernanceVoting...");
   const GovernanceVoting = await ethers.getContractFactory("GovernanceVoting");

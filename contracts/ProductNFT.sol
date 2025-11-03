@@ -94,7 +94,7 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         );
 
         // Get product details to check current owner
-        (, , address currentOwner, , , , ) = productRegistry.products(
+        (, , address currentOwner, , , , , ) = productRegistry.products(
             productId
         );
 
@@ -328,7 +328,7 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         require(_ownerOf(tokenId) != address(0), "Token does not exist");
 
         bytes32 productId = nftToProductId[tokenId];
-        (, , , , , string memory metadataURI, ) = productRegistry.products(
+        (, , , , , string memory metadataURI, , ) = productRegistry.products(
             productId
         );
 

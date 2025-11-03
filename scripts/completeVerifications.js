@@ -153,32 +153,13 @@ async function main() {
             failureReason
           )}`;
 
-      // Step 1: Complete verification in VerificationManager
+      // Complete verification in VerificationManager
+      // Note: completeVerification now automatically calls recordVerification if result is true
       await (
         await vm
           .connect(verifierSigner)
           .completeVerification(requestId, isVerified, evidenceURI)
       ).wait();
-
-      // Step 2: Record verification in ProductRegistry (only if verified)
-      if (isVerified) {
-        const verificationHash = hre.ethers.keccak256(
-          hre.ethers.toUtf8Bytes(evidenceURI)
-        );
-
-        try {
-          await (
-            await pr
-              .connect(verifierSigner)
-              .recordVerification(request.productId, verificationHash)
-          ).wait();
-          console.log(`   [SUCCESS] Recorded in ProductRegistry`);
-        } catch (e) {
-          console.log(
-            `   [WARNING] Failed to record in ProductRegistry: ${e.message}`
-          );
-        }
-      }
 
       // Get balances after
       const verifierBalanceAfter = await auth.balanceOf(verifierAddress);

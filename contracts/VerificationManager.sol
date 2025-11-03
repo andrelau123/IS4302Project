@@ -183,6 +183,14 @@ contract VerificationManager is AccessControl, ReentrancyGuard, Pausable {
         v.totalVerifications++;
         if (result) v.successfulVerifications++;
 
+        // Only record verification in ProductRegistry if verification passed
+        if (result) {
+            bytes32 verificationHash = keccak256(
+                abi.encodePacked(r.productId, msg.sender, block.timestamp, result)
+            );
+            productRegistry.recordVerification(r.productId, verificationHash);
+        }
+
         // Transfer fee to FeeDistributor first, then let it handle distribution
         authToken.transfer(address(feeDistributor), r.fee);
         feeDistributor.distributeRevenue(

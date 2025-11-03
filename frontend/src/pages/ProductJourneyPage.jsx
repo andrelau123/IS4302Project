@@ -10,6 +10,7 @@ import Button from "../components/Common/Button";
 import Card from "../components/Common/Card";
 import { ButtonVariants } from "../types";
 import ProductRegistryABI from "../contracts/ProductRegistry.json";
+import DisputeResolutionABI from "../contracts/DisputeResolution.json";
 import { CONTRACT_ADDRESSES } from "../utils/constants";
 
 const ProductJourneyPage = () => {
@@ -20,6 +21,7 @@ const ProductJourneyPage = () => {
   const [product, setProduct] = useState(null);
   const [transferHistory, setTransferHistory] = useState([]);
   const [verifications, setVerifications] = useState([]);
+  const [disputes, setDisputes] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -189,6 +191,50 @@ const ProductJourneyPage = () => {
         setVerifications([]);
       }
 
+      // Load disputes for this product
+      try {
+        const disputeAddress =
+          CONTRACT_ADDRESSES.DISPUTE_RESOLUTION ||
+          process.env.REACT_APP_DISPUTE_RESOLUTION_ADDRESS;
+
+        if (disputeAddress && disputeAddress !== "0x...") {
+          const disputeResolution = new ethers.Contract(
+            disputeAddress,
+            DisputeResolutionABI.abi,
+            provider
+          );
+
+          // Get all dispute IDs
+          const allDisputeIds = await disputeResolution.disputeIds();
+          const productDisputes = [];
+
+          for (const disputeId of allDisputeIds) {
+            const dispute = await disputeResolution.disputes(disputeId);
+
+            // Check if dispute is for this product
+            if (dispute.productId.toLowerCase() === id.toLowerCase()) {
+              productDisputes.push({
+                disputeId,
+                productId: dispute.productId,
+                initiator: dispute.initiator,
+                originalVerifier: dispute.originalVerifier,
+                createdAt: Number(dispute.createdAt) * 1000,
+                resolvedAt: Number(dispute.resolvedAt) * 1000,
+                status: Number(dispute.status), // 0=None, 1=Open, 2=UnderReview, 3=Resolved, 4=Rejected, 5=Expired
+                inFavor: dispute.inFavor,
+                votesFor: Number(dispute.votesFor),
+                votesAgainst: Number(dispute.votesAgainst),
+              });
+            }
+          }
+
+          setDisputes(productDisputes);
+        }
+      } catch (err) {
+        console.warn("Error loading disputes:", err);
+        setDisputes([]);
+      }
+
       toast.success("Product journey loaded successfully!");
     } catch (err) {
       console.error("Error loading product journey:", err);
@@ -212,6 +258,7 @@ const ProductJourneyPage = () => {
     setProduct(null);
     setTransferHistory([]);
     setVerifications([]);
+    setDisputes([]);
     setError(null);
     setSearchParams({});
   };
@@ -365,6 +412,7 @@ const ProductJourneyPage = () => {
             product={product}
             transferHistory={transferHistory}
             verifications={verifications}
+            disputes={disputes}
           />
         </div>
       )}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { AiOutlineShoppingCart, AiOutlineVerified } from "react-icons/ai";
 import { MdVerified } from "react-icons/md";
+import { FaTshirt, FaCoffee, FaGem, FaPalette, FaBox } from "react-icons/fa";
 import Card from "../components/Common/Card";
 import Button from "../components/Common/Button";
 import LoadingSpinner from "../components/Common/LoadingSpinner";
@@ -100,6 +101,30 @@ const MarketplacePage = () => {
     filterAndSortListings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listings, searchTerm, categoryFilter, priceSort]);
+
+  // Get category icon component
+  const getCategoryIcon = (category) => {
+    const iconClass = "text-8xl";
+    switch (category?.toLowerCase()) {
+      case "clothing":
+      case "fashion":
+      case "apparel":
+        return <FaTshirt className={iconClass} />;
+      case "food":
+      case "beverage":
+      case "food & beverage":
+        return <FaCoffee className={iconClass} />;
+      case "accessories":
+      case "jewelry":
+        return <FaGem className={iconClass} />;
+      case "art":
+      case "art & crafts":
+      case "crafts":
+        return <FaPalette className={iconClass} />;
+      default:
+        return <FaBox className={iconClass} />;
+    }
+  };
 
   const parseNFTName = (metadataURI, category) => {
     if (!metadataURI) return "Product NFT";
@@ -503,11 +528,26 @@ const MarketplacePage = () => {
               )}
 
               {/* NFT Image */}
-              <div className="aspect-square bg-gray-200 rounded-lg mb-4 relative overflow-hidden">
-                <div className="absolute inset-0 flex items-center justify-center text-gray-500">
-                  <AiOutlineVerified size={48} />
+              <div className="aspect-square bg-gradient-to-br from-purple-100 via-blue-100 to-pink-100 rounded-lg mb-4 relative overflow-hidden">
+                <div className="absolute inset-0 flex items-center justify-center text-purple-600 opacity-80">
+                  {getCategoryIcon(listing.category)}
                 </div>
-                {/* Replace with actual image when available */}
+                {/* Rarity Badge */}
+                <div
+                  className="absolute top-2 left-2 px-2 py-1 rounded text-xs font-semibold"
+                  style={{
+                    backgroundColor:
+                      listing.rarity === "Epic"
+                        ? "#9333ea"
+                        : listing.rarity === "Rare"
+                        ? "#3b82f6"
+                        : "#10b981",
+                    color: "white",
+                  }}
+                >
+                  {listing.rarity}
+                </div>
+                {/* Token ID Badge */}
                 <div className="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-xs">
                   #{listing.tokenId}
                 </div>

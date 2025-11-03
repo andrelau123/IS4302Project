@@ -205,6 +205,17 @@ contract DisputeResolution is AccessControl, ReentrancyGuard, Pausable {
         uint256 refund = 0;
         if (d.inFavor) {
             // Dispute is valid = verification was wrong!
+            // Simply add a new verification record that flips the result
+            bytes32 verificationHash = keccak256(
+                abi.encodePacked(
+                    d.productId,
+                    block.timestamp,
+                    "DisputeResolution",
+                    disputeId
+                )
+            );
+            productRegistry.recordVerification(d.productId, verificationHash);
+
             // Slash the bad verifier's stake
             verificationManager.slashVerifierFromDispute(
                 d.originalVerifier,

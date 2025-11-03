@@ -160,8 +160,7 @@ const TransferButton = ({ product, onTransferComplete, className = "" }) => {
     product.currentOwner &&
     currentAddress &&
     product.currentOwner.toLowerCase() === currentAddress.toLowerCase() &&
-    product.status !== 3 &&
-    product.status !== 4;
+    product.status !== 3; // Can't transfer sold products
 
   if (!canTransfer) {
     console.log("TransferButton hidden because:", {
@@ -170,7 +169,7 @@ const TransferButton = ({ product, onTransferComplete, className = "" }) => {
       ownersMatch:
         product.currentOwner?.toLowerCase() === currentAddress?.toLowerCase(),
       status: product.status,
-      statusOk: product.status !== 3 && product.status !== 4,
+      statusOk: product.status !== 3,
     });
     return null;
   }

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { AiOutlineShoppingCart, AiOutlineEye } from "react-icons/ai";
 import { MdVerified } from "react-icons/md";
+import { FaTshirt, FaCoffee, FaGem, FaPalette, FaBox } from "react-icons/fa";
 import { ethers } from "ethers";
 import { toast } from "react-toastify";
 import Card from "../Common/Card";
@@ -22,17 +23,39 @@ const MyNFTsSection = () => {
   const [listPrice, setListPrice] = useState("");
 
   const getRarityColor = (rarity) => {
-    switch (rarity?.toLowerCase()) {
-      case "common":
-        return "text-gray-600 bg-gray-100";
-      case "rare":
-        return "text-blue-600 bg-blue-100";
-      case "epic":
-        return "text-purple-600 bg-purple-100";
-      case "legendary":
-        return "text-orange-600 bg-orange-100";
+    switch (rarity) {
+      case "Epic":
+        return "bg-purple-100 text-purple-800";
+      case "Rare":
+        return "bg-blue-100 text-blue-800";
+      case "Common":
+        return "bg-gray-100 text-gray-800";
       default:
-        return "text-gray-600 bg-gray-100";
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  // Get category icon component
+  const getCategoryIcon = (category) => {
+    const iconClass = "text-6xl";
+    switch (category?.toLowerCase()) {
+      case "clothing":
+      case "fashion":
+      case "apparel":
+        return <FaTshirt className={iconClass} />;
+      case "food":
+      case "beverage":
+      case "food & beverage":
+        return <FaCoffee className={iconClass} />;
+      case "accessories":
+      case "jewelry":
+        return <FaGem className={iconClass} />;
+      case "art":
+      case "art & crafts":
+      case "crafts":
+        return <FaPalette className={iconClass} />;
+      default:
+        return <FaBox className={iconClass} />;
     }
   };
 
@@ -176,25 +199,13 @@ const MyNFTsSection = () => {
               key={nft.tokenId}
               className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-200"
             >
-              {/* NFT Image Placeholder */}
-              <div className="relative aspect-square bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+              {/* NFT Image with Category Icon */}
+              <div className="relative aspect-square bg-gradient-to-br from-purple-100 via-blue-100 to-pink-100 flex items-center justify-center">
                 <div className="absolute top-3 right-3 bg-green-500 text-white p-1.5 rounded-full">
                   <MdVerified size={16} />
                 </div>
-                <div className="text-gray-400">
-                  <svg
-                    className="w-20 h-20"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1}
-                      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                    />
-                  </svg>
+                <div className="text-purple-600 opacity-80">
+                  {getCategoryIcon(nft.category)}
                 </div>
                 <div className="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-xs font-medium">
                   #{nft.tokenId}

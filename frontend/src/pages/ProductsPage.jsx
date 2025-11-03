@@ -150,26 +150,13 @@ const ProductsPage = () => {
             // Extract readable name from metadataURI
             const productName = extractProductName(metadataURI);
 
-            // Fetch product history and check for a verification record
-            let isVerified = false;
-            try {
-              const history = await productRegistry.getProductHistory(
-                productId
-              );
-              // Look for an entry coming from the VerificationManager (location set to "Verification Node")
-              if (Array.isArray(history) && history.length > 0) {
-                isVerified = history.some((h) => {
-                  try {
-                    // `location` is expected to be a string in the TransferEvent struct
-                    return h.location && h.location === "Verification Node";
-                  } catch (e) {
-                    return false;
-                  }
-                });
-              }
-            } catch (historyErr) {
-              console.warn("Could not fetch product history:", historyErr);
-            }
+            // Read isVerified directly from the product struct
+            // Product struct: [productId, manufacturer, currentOwner, status, registeredAt, metadataURI, exists, isVerified]
+            // Access by index [7] or by field name
+            let isVerified = product[7] || product.isVerified || false;
+            
+            console.log(`Product ${productId.slice(0, 10)}... struct:`, product);
+            console.log(`isVerified by index [7]:`, product[7], 'by name:', product.isVerified, 'final:', isVerified);
 
             let category = "General";
             try {

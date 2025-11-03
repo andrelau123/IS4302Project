@@ -6,7 +6,6 @@ import {
   AiOutlineClose,
   AiOutlineShop,
   AiOutlineSafetyCertificate,
-  AiOutlineUser,
   AiOutlineBarChart,
   AiOutlineWarning,
 } from "react-icons/ai";
@@ -60,11 +59,6 @@ const Navbar = () => {
       path: "/verification",
       label: "Verification",
       icon: <AiOutlineSafetyCertificate size={20} />,
-    },
-    {
-      path: "/retailers",
-      label: "Retailers",
-      icon: <AiOutlineUser size={20} />,
     },
   ];
 

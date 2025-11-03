@@ -33,6 +33,7 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         uint256 registeredAt;
         string metadataURI; // IPFS CID or HTTPS link
         bool exists;
+        bool isVerified; // Track verification status
     }
 
     struct TransferEvent {
@@ -90,7 +91,8 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
             status: ProductStatus.Registered,
             registeredAt: block.timestamp,
             metadataURI: metadataURI,
-            exists: true
+            exists: true,
+            isVerified: false
         });
 
         // Record initial registration event
@@ -134,7 +136,11 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         );
 
         p.currentOwner = to;
-        p.status = ProductStatus.InTransit;
+
+        // Only change status to InTransit if not disputed
+        if (p.status != ProductStatus.Disputed) {
+            p.status = ProductStatus.InTransit;
+        }
 
         productHistory[productId].push(
             TransferEvent({
@@ -147,7 +153,11 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         );
 
         emit ProductTransferred(productId, msg.sender, to, block.timestamp);
-        emit ProductStatusChanged(productId, ProductStatus.InTransit);
+
+        // Only emit status change if status actually changed
+        if (p.status != ProductStatus.Disputed) {
+            emit ProductStatusChanged(productId, ProductStatus.InTransit);
+        }
     }
 
     /// @notice Allows the current owner (retailer) to confirm receipt of product
@@ -157,9 +167,16 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         Product storage p = products[productId];
         require(p.exists, "Not found");
         require(p.currentOwner == msg.sender, "Not owner");
-        require(p.status == ProductStatus.InTransit, "Product not in transit");
+        require(
+            p.status == ProductStatus.InTransit ||
+                p.status == ProductStatus.Disputed,
+            "Product not in transit"
+        );
 
-        p.status = ProductStatus.AtRetailer;
+        // Only change status to AtRetailer if not disputed
+        if (p.status != ProductStatus.Disputed) {
+            p.status = ProductStatus.AtRetailer;
+        }
 
         // Record receipt in history
         productHistory[productId].push(
@@ -174,7 +191,10 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
             })
         );
 
-        emit ProductStatusChanged(productId, ProductStatus.AtRetailer);
+        // Only emit status change if status actually changed
+        if (p.status != ProductStatus.Disputed) {
+            emit ProductStatusChanged(productId, ProductStatus.AtRetailer);
+        }
     }
 
     /// @notice Mark a product as sold to final customer
@@ -216,6 +236,50 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         emit ProductStatusChanged(productId, ProductStatus.Sold);
     }
 
+    /// @notice Mark a product as disputed (called by DisputeResolution contract)
+    function markAsDisputed(
+        bytes32 productId
+    ) external onlyRole(VERIFIER_ROLE) whenNotPaused {
+        Product storage p = products[productId];
+        require(p.exists, "Product not found");
+
+        // Mark as disputed
+        p.status = ProductStatus.Disputed;
+
+        emit ProductStatusChanged(productId, ProductStatus.Disputed);
+    }
+
+    /// @notice Clear disputed status and restore to appropriate status
+    function clearDisputed(
+        bytes32 productId
+    ) external onlyRole(VERIFIER_ROLE) whenNotPaused {
+        Product storage p = products[productId];
+        require(p.exists, "Product not found");
+        require(p.status == ProductStatus.Disputed, "Not disputed");
+
+        // Determine appropriate status based on owner and history
+        ProductStatus newStatus;
+
+        // Check if product was sold (owner is not manufacturer or retailer)
+        bool isManufacturer = hasRole(MANUFACTURER_ROLE, p.currentOwner) &&
+            p.currentOwner == p.manufacturer;
+        bool isRetailer = retailerRegistry.isAuthorizedRetailer(
+            p.manufacturer,
+            p.currentOwner
+        );
+
+        if (!isManufacturer && !isRetailer) {
+            newStatus = ProductStatus.Sold;
+        } else if (isRetailer) {
+            newStatus = ProductStatus.AtRetailer;
+        } else {
+            newStatus = ProductStatus.Registered;
+        }
+
+        p.status = newStatus;
+        emit ProductStatusChanged(productId, newStatus);
+    }
+
     function updateProductStatus(
         bytes32 productId,
         ProductStatus newStatus
@@ -230,15 +294,22 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
 
     // verification Hooks
     /// @notice Called by VerificationManager after successful authenticity check.
+    /// Also used by DisputeResolution to flip verification status.
     function recordVerification(
         bytes32 productId,
         bytes32 verificationHash
     ) external onlyRole(VERIFIER_ROLE) {
         require(products[productId].exists, "Invalid ID");
+
+        Product storage p = products[productId];
+
+        // Flip the verification status
+        p.isVerified = !p.isVerified;
+
         productHistory[productId].push(
             TransferEvent({
-                from: products[productId].currentOwner,
-                to: products[productId].currentOwner,
+                from: p.currentOwner,
+                to: p.currentOwner,
                 timestamp: block.timestamp,
                 location: "Verification Node",
                 verificationHash: verificationHash

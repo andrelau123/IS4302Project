@@ -174,22 +174,9 @@ const VerificationPage = () => {
           try {
             const productId = ev.args.productId;
             const product = await productRegistry.getProduct(productId);
-            let history = [];
-            try {
-              history = await productRegistry.getProductHistory(productId);
-            } catch (e) {
-              // ignore
-            }
 
-            const isVerified =
-              Array.isArray(history) &&
-              history.some((h) => {
-                try {
-                  return h.location === "Verification Node";
-                } catch (e) {
-                  return false;
-                }
-              });
+            // Read isVerified directly from the product struct
+            let isVerified = product.isVerified || false;
 
             return {
               productId,
