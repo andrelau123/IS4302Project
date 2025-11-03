@@ -141,24 +141,8 @@ async function main() {
   // Configure roles and cross-contract permissions
   console.log("\nConfiguring contract roles and permissions...");
 
-  // Grant MINTER_ROLE to deployer for ProductNFT (safe even if constructor already set it)
-  try {
-    const MINTER_ROLE = await productNFT.MINTER_ROLE();
-    const hasMinter = await productNFT.hasRole(MINTER_ROLE, deployer.address);
-    if (!hasMinter) {
-      console.log("Granting MINTER_ROLE to deployer on ProductNFT...");
-      const tx = await productNFT.grantRole(MINTER_ROLE, deployer.address);
-      await tx.wait();
-      console.log("\u2705 MINTER_ROLE granted to deployer on ProductNFT");
-    } else {
-      console.log("Deployer already has MINTER_ROLE on ProductNFT");
-    }
-  } catch (err) {
-    console.warn(
-      "Could not grant MINTER_ROLE on ProductNFT:",
-      err?.message || err
-    );
-  }
+  // MINTER_ROLE no longer needed - current product owner can mint
+  console.log("ProductNFT: Current product owner can mint (no role required)");
 
   // Whitelist marketplace for NFT transfers (if function exists)
   try {

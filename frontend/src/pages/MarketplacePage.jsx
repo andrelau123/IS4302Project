@@ -1,155 +1,264 @@
-import React, { useState, useEffect } from 'react';
-import { AiOutlineShoppingCart, AiOutlineHeart, AiOutlineVerified } from 'react-icons/ai';
-import { MdVerified } from 'react-icons/md';
-import Card from '../components/Common/Card';
-import Button from '../components/Common/Button';
-import LoadingSpinner from '../components/Common/LoadingSpinner';
-import { useProductNFT } from '../hooks/useContracts';
-import { useWallet } from '../contexts/WalletContext';
-import { ButtonVariants } from '../types';
-import { ethers } from 'ethers';
-import MarketplaceABI from '../contracts/Marketplace.json';
-import marketplaceConfig from '../marketplaceConfig.json';
-import { toast } from 'react-toastify';
+import React, { useState, useEffect } from "react";
+import { AiOutlineShoppingCart, AiOutlineVerified } from "react-icons/ai";
+import { MdVerified } from "react-icons/md";
+import Card from "../components/Common/Card";
+import Button from "../components/Common/Button";
+import LoadingSpinner from "../components/Common/LoadingSpinner";
+import { useWallet } from "../contexts/WalletContext";
+import { ButtonVariants } from "../types";
+import { ethers } from "ethers";
+import MarketplaceABI from "../contracts/Marketplace.json";
+import ProductNFTABI from "../contracts/ProductNFT.json";
+import ProductRegistryABI from "../contracts/ProductRegistry.json";
+import { toast } from "react-toastify";
 
 const MarketplacePage = () => {
   const [listings, setListings] = useState([]);
   const [filteredListings, setFilteredListings] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [priceSort, setPriceSort] = useState('none');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [priceSort, setPriceSort] = useState("none");
 
-  const { getUserNFTs } = useProductNFT();
   const { account, isConnected, signer, provider } = useWallet();
 
   // Mock marketplace data
   const mockListings = [
     {
-      id: '1',
-      tokenId: '101',
-      name: 'Premium Coffee Beans NFT',
-      description: 'Authentic Ethiopian single-origin coffee beans with blockchain verification',
-      price: '0.5',
-      currency: 'ETH',
-      image: '/api/placeholder/300/300',
-      seller: '0xabc123...',
+      id: "1",
+      tokenId: "101",
+      name: "Premium Coffee Beans NFT",
+      description:
+        "Authentic Ethiopian single-origin coffee beans with blockchain verification",
+      price: "0.5",
+      currency: "ETH",
+      image: "/api/placeholder/300/300",
+      seller: "0xabc123...",
       isVerified: true,
-      category: 'Food & Beverage',
-      rarity: 'Rare',
+      category: "Food & Beverage",
+      rarity: "Rare",
       likes: 45,
-      views: 234
+      views: 234,
     },
     {
-      id: '2',
-      tokenId: '102',
-      name: 'Organic Cotton T-Shirt NFT',
-      description: 'Sustainably sourced organic cotton apparel with authenticity guarantee',
-      price: '0.3',
-      currency: 'ETH',
-      image: '/api/placeholder/300/300',
-      seller: '0xdef456...',
+      id: "2",
+      tokenId: "102",
+      name: "Organic Cotton T-Shirt NFT",
+      description:
+        "Sustainably sourced organic cotton apparel with authenticity guarantee",
+      price: "0.3",
+      currency: "ETH",
+      image: "/api/placeholder/300/300",
+      seller: "0xdef456...",
       isVerified: true,
-      category: 'Clothing',
-      rarity: 'Common',
+      category: "Clothing",
+      rarity: "Common",
       likes: 23,
-      views: 156
+      views: 156,
     },
     {
-      id: '3',
-      tokenId: '103',
-      name: 'Artisan Leather Wallet NFT',
-      description: 'Handcrafted genuine leather wallet with provenance tracking',
-      price: '0.8',
-      currency: 'ETH',
-      image: '/api/placeholder/300/300',
-      seller: '0xghi789...',
+      id: "3",
+      tokenId: "103",
+      name: "Artisan Leather Wallet NFT",
+      description:
+        "Handcrafted genuine leather wallet with provenance tracking",
+      price: "0.8",
+      currency: "ETH",
+      image: "/api/placeholder/300/300",
+      seller: "0xghi789...",
       isVerified: true,
-      category: 'Accessories',
-      rarity: 'Epic',
+      category: "Accessories",
+      rarity: "Epic",
       likes: 67,
-      views: 445
+      views: 445,
     },
     {
-      id: '4',
-      tokenId: '104',
-      name: 'Handmade Ceramic Mug NFT',
-      description: 'Unique ceramic mug with artist authenticity certificate',
-      price: '0.2',
-      currency: 'ETH',
-      image: '/api/placeholder/300/300',
-      seller: '0xjkl012...',
+      id: "4",
+      tokenId: "104",
+      name: "Handmade Ceramic Mug NFT",
+      description: "Unique ceramic mug with artist authenticity certificate",
+      price: "0.2",
+      currency: "ETH",
+      image: "/api/placeholder/300/300",
+      seller: "0xjkl012...",
       isVerified: false,
-      category: 'Art & Crafts',
-      rarity: 'Common',
+      category: "Art & Crafts",
+      rarity: "Common",
       likes: 12,
-      views: 89
-    }
+      views: 89,
+    },
   ];
 
   useEffect(() => {
     if (provider) {
       loadListings();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [provider]);
 
   useEffect(() => {
     filterAndSortListings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listings, searchTerm, categoryFilter, priceSort]);
+
+  const parseNFTName = (metadataURI, category) => {
+    if (!metadataURI) return "Product NFT";
+
+    try {
+      // Remove ipfs:// prefix (case-insensitive)
+      let cleanURI = metadataURI.replace(/^ipfs:\/\//i, "");
+
+      // Split at '#' to separate name from parameters
+      const [namePart] = cleanURI.split("#");
+      if (!namePart) return "Product NFT";
+
+      let cleanName = namePart;
+
+      // Remove IPFS hash if present (starts with Qm)
+      cleanName = cleanName.replace(/^Qm[A-Za-z0-9]+[-_]?/i, "");
+
+      // Remove timestamp suffix (e.g., -1762191933015)
+      cleanName = cleanName.replace(/-\d+$/, "");
+
+      // Replace separators with spaces
+      cleanName = cleanName.replace(/[-_]/g, " ");
+
+      // Remove leading/trailing spaces
+      cleanName = cleanName.trim();
+
+      // Capitalize each word
+      cleanName = cleanName
+        .split(" ")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+
+      // Add NFT suffix
+      return cleanName ? `${cleanName} NFT` : "Product NFT";
+    } catch (error) {
+      console.error("Error parsing NFT name:", error);
+      return "Product NFT";
+    }
+  };
 
   const loadListings = async () => {
     setIsLoading(true);
     try {
       if (!provider) {
-        console.log('Provider not ready');
+        console.log("Provider not ready");
         return;
       }
 
-      // Create marketplace contract instance
+      const marketplaceAddress = process.env.REACT_APP_MARKETPLACE_ADDRESS;
+      const productNFTAddress = process.env.REACT_APP_PRODUCT_NFT_ADDRESS;
+      const productRegistryAddress =
+        process.env.REACT_APP_PRODUCT_REGISTRY_ADDRESS;
+
+      if (
+        !marketplaceAddress ||
+        !productNFTAddress ||
+        !productRegistryAddress
+      ) {
+        console.log("Contract addresses not configured");
+        setListings(mockListings); // Fallback to mock data
+        return;
+      }
+
+      // Create contract instances
       const marketplace = new ethers.Contract(
-        marketplaceConfig.marketplace,
+        marketplaceAddress,
         MarketplaceABI.abi,
         provider
       );
 
-      // Check which NFTs are still listed
+      const productNFT = new ethers.Contract(
+        productNFTAddress,
+        ProductNFTABI.abi,
+        provider
+      );
+
+      const productRegistry = new ethers.Contract(
+        productRegistryAddress,
+        ProductRegistryABI.abi,
+        provider
+      );
+
+      // Check NFT tokens 1-20 for active listings
       const availableListings = [];
-      
-      for (let i = 0; i < marketplaceConfig.listings.length; i++) {
-        const item = marketplaceConfig.listings[i];
+
+      for (let tokenId = 1; tokenId <= 20; tokenId++) {
         try {
-          const isListed = await marketplace.isListed(item.tokenId);
-          
-          if (isListed) {
+          const listing = await marketplace.listings(tokenId);
+
+          if (listing.active) {
+            const priceInEth = ethers.formatEther(listing.price);
+
+            // Get product details
+            let name = `Product NFT #${tokenId}`;
+            let description =
+              "Authentic verified product with blockchain certification";
+            let category = "General";
+
+            try {
+              // Get productId from NFT
+              const productId = await productNFT.nftToProductId(tokenId);
+
+              // Get product details from registry
+              const product = await productRegistry.products(productId);
+
+              // Parse metadata URI for name
+              if (product.metadataURI) {
+                // Extract category from URI if present
+                const categoryMatch =
+                  product.metadataURI.match(/category=([^&]+)/);
+                category = categoryMatch
+                  ? categoryMatch[1].charAt(0).toUpperCase() +
+                    categoryMatch[1].slice(1)
+                  : "General";
+
+                // Parse clean name
+                name = parseNFTName(product.metadataURI, category);
+                description = `Authentic ${category.toLowerCase()} product verified on blockchain`;
+              }
+            } catch (err) {
+              console.log(
+                `Could not fetch details for token ${tokenId}:`,
+                err.message
+              );
+            }
+
             availableListings.push({
-              id: item.tokenId,
-              tokenId: item.tokenId,
-              name: item.name + " NFT",
-              description: `Authentic ${item.name.toLowerCase()} with blockchain verification`,
-              price: item.price,
-              currency: 'ETH',
-              image: '/api/placeholder/300/300',
-              seller: item.seller,
+              id: tokenId.toString(),
+              tokenId: tokenId.toString(),
+              name: name,
+              description: description,
+              price: priceInEth,
+              currency: "ETH",
+              image: "/api/placeholder/300/300",
+              seller: listing.seller,
               isVerified: true,
-              category: i === 0 ? 'Food & Beverage' : i === 1 ? 'Clothing' : i === 2 ? 'Accessories' : 'Art & Crafts',
-              rarity: i === 0 ? 'Rare' : i === 2 ? 'Epic' : 'Common',
-              likes: Math.floor(Math.random() * 100),
-              views: Math.floor(Math.random() * 500)
+              category: category,
+              rarity:
+                parseFloat(priceInEth) > 0.5
+                  ? "Epic"
+                  : parseFloat(priceInEth) > 0.3
+                  ? "Rare"
+                  : "Common",
             });
           }
         } catch (error) {
-          console.error(`Error checking listing ${item.tokenId}:`, error);
+          // Token doesn't exist or no listing
+          continue;
         }
       }
-      
+
       setListings(availableListings);
-      
+
       if (availableListings.length === 0) {
-        toast.info('All NFTs have been sold! Check back later for new listings.');
+        toast.info("No NFTs currently listed. Mint and list your own!");
       }
     } catch (error) {
-      console.error('Error loading listings:', error);
-      toast.error('Failed to load marketplace listings');
+      console.error("Error loading listings:", error);
+      toast.error("Failed to load marketplace listings");
     } finally {
       setIsLoading(false);
     }
@@ -160,26 +269,29 @@ const MarketplacePage = () => {
 
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(listing =>
-        listing.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        listing.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        listing.category.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(
+        (listing) =>
+          listing.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          listing.description
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          listing.category.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Category filter
-    if (categoryFilter !== 'all') {
-      filtered = filtered.filter(listing => 
-        listing.category === categoryFilter
+    if (categoryFilter !== "all") {
+      filtered = filtered.filter(
+        (listing) => listing.category === categoryFilter
       );
     }
 
     // Price sorting
-    if (priceSort !== 'none') {
+    if (priceSort !== "none") {
       filtered.sort((a, b) => {
         const priceA = parseFloat(a.price);
         const priceB = parseFloat(b.price);
-        return priceSort === 'low' ? priceA - priceB : priceB - priceA;
+        return priceSort === "low" ? priceA - priceB : priceB - priceA;
       });
     }
 
@@ -188,12 +300,18 @@ const MarketplacePage = () => {
 
   const handlePurchase = async (listing) => {
     if (!isConnected) {
-      toast.error('Please connect your wallet first');
+      toast.error("Please connect your wallet first");
       return;
     }
 
     if (!signer) {
-      toast.error('Wallet not properly connected');
+      toast.error("Wallet not properly connected");
+      return;
+    }
+
+    // Check if trying to buy own NFT
+    if (listing.seller.toLowerCase() === account.toLowerCase()) {
+      toast.error("You cannot buy your own NFT!");
       return;
     }
 
@@ -201,9 +319,15 @@ const MarketplacePage = () => {
       setIsLoading(true);
       toast.info(`Purchasing ${listing.name}...`);
 
+      const marketplaceAddress = process.env.REACT_APP_MARKETPLACE_ADDRESS;
+      if (!marketplaceAddress) {
+        toast.error("Marketplace not configured");
+        return;
+      }
+
       // Create marketplace contract instance
       const marketplace = new ethers.Contract(
-        marketplaceConfig.marketplace,
+        marketplaceAddress,
         MarketplaceABI.abi,
         signer
       );
@@ -211,62 +335,79 @@ const MarketplacePage = () => {
       // Purchase NFT - send ETH as value
       const priceInWei = ethers.parseEther(listing.price);
       const tx = await marketplace.purchaseNFT(listing.tokenId, {
-        value: priceInWei
+        value: priceInWei,
       });
 
-      toast.info('Transaction submitted! Waiting for confirmation...');
+      toast.info("Transaction submitted! Waiting for confirmation...");
       await tx.wait();
 
-      toast.success(`🎉 Successfully purchased ${listing.name}!`);
-      
+      toast.success(
+        `🎉 Successfully purchased ${listing.name} for ${listing.price} ETH!`
+      );
+
       // Refresh listings
       await loadListings();
-
     } catch (error) {
-      console.error('Purchase failed:', error);
-      
-      if (error.code === 'ACTION_REJECTED') {
-        toast.error('Transaction was rejected');
-      } else if (error.message?.includes('insufficient funds')) {
-        toast.error('Insufficient funds to complete purchase');
+      console.error("Purchase failed:", error);
+
+      if (
+        error.code === "ACTION_REJECTED" ||
+        error.message?.includes("user rejected")
+      ) {
+        toast.warning("Transaction was rejected");
+      } else if (error.message?.includes("insufficient funds")) {
+        toast.error("Insufficient ETH to complete purchase");
+      } else if (error.message?.includes("Not listed")) {
+        toast.error("This NFT is no longer listed for sale");
+        await loadListings();
       } else {
-        toast.error('Purchase failed: ' + (error.reason || error.message));
+        toast.error("Purchase failed: " + (error.reason || error.message));
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLike = (listingId) => {
-    setListings(prev => prev.map(listing => 
-      listing.id === listingId 
-        ? { ...listing, likes: listing.likes + 1 }
-        : listing
-    ));
-  };
-
   const formatAddress = (address) => {
-    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+    return `${address.substring(0, 6)}...${address.substring(
+      address.length - 4
+    )}`;
   };
 
   const getRarityColor = (rarity) => {
     switch (rarity.toLowerCase()) {
-      case 'common': return 'text-gray-600';
-      case 'rare': return 'text-blue-600';
-      case 'epic': return 'text-purple-600';
-      case 'legendary': return 'text-orange-600';
-      default: return 'text-gray-600';
+      case "common":
+        return "text-gray-600";
+      case "rare":
+        return "text-blue-600";
+      case "epic":
+        return "text-purple-600";
+      case "legendary":
+        return "text-orange-600";
+      default:
+        return "text-gray-600";
     }
   };
 
-  const categories = ['All', 'Food & Beverage', 'Clothing', 'Electronics', 'Accessories', 'Art & Crafts'];
+  const categories = [
+    "All",
+    "Food & Beverage",
+    "Clothing",
+    "Electronics",
+    "Accessories",
+    "Art & Crafts",
+  ];
 
   return (
     <div className="pt-20 p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">NFT Marketplace</h1>
-        <p className="text-gray-600">Discover and collect authenticated product NFTs</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          NFT Marketplace
+        </h1>
+        <p className="text-gray-600">
+          Discover and collect authenticated product NFTs
+        </p>
       </div>
 
       {/* Filters */}
@@ -289,8 +430,10 @@ const MarketplacePage = () => {
           className="input-field w-48"
         >
           <option value="all">All Categories</option>
-          {categories.slice(1).map(category => (
-            <option key={category} value={category}>{category}</option>
+          {categories.slice(1).map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
           ))}
         </select>
 
@@ -307,28 +450,18 @@ const MarketplacePage = () => {
       </div>
 
       {/* Stats */}
-      <div className="mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="text-center">
-          <div className="text-2xl font-bold text-primary-blue">{listings.length}</div>
-          <div className="text-sm text-gray-600">Total NFTs</div>
+          <div className="text-2xl font-bold text-primary-blue">
+            {listings.length}
+          </div>
+          <div className="text-sm text-gray-600">Total Listed NFTs</div>
         </Card>
         <Card className="text-center">
           <div className="text-2xl font-bold text-primary-green">
-            {listings.filter(l => l.isVerified).length}
+            {listings.filter((l) => l.isVerified).length}
           </div>
-          <div className="text-sm text-gray-600">Verified</div>
-        </Card>
-        <Card className="text-center">
-          <div className="text-2xl font-bold text-primary-purple">
-            {listings.reduce((sum, l) => sum + l.likes, 0)}
-          </div>
-          <div className="text-sm text-gray-600">Total Likes</div>
-        </Card>
-        <Card className="text-center">
-          <div className="text-2xl font-bold text-accent-orange">
-            {listings.reduce((sum, l) => sum + l.views, 0)}
-          </div>
-          <div className="text-sm text-gray-600">Total Views</div>
+          <div className="text-sm text-gray-600">Verified NFTs</div>
         </Card>
       </div>
 
@@ -339,12 +472,13 @@ const MarketplacePage = () => {
         </div>
       ) : filteredListings.length === 0 ? (
         <Card className="text-center py-12">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No NFTs found</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            No NFTs found
+          </h3>
           <p className="text-gray-600">
-            {listings.length === 0 
-              ? "No NFTs are currently listed in the marketplace." 
-              : "No NFTs match your current filters."
-            }
+            {listings.length === 0
+              ? "No NFTs are currently listed in the marketplace."
+              : "No NFTs match your current filters."}
           </p>
         </Card>
       ) : (
@@ -382,34 +516,29 @@ const MarketplacePage = () => {
 
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500">Rarity:</span>
-                  <span className={`font-medium ${getRarityColor(listing.rarity)}`}>
+                  <span
+                    className={`font-medium ${getRarityColor(listing.rarity)}`}
+                  >
                     {listing.rarity}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500">Seller:</span>
-                  <span className="font-medium">{formatAddress(listing.seller)}</span>
+                  <span className="font-medium">
+                    {formatAddress(listing.seller)}
+                  </span>
                 </div>
 
                 {/* Price and Actions */}
                 <div className="pt-3 border-t border-gray-200">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <div className="text-lg font-bold text-gray-900">
-                        {listing.price} {listing.currency}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        ≈ ${(parseFloat(listing.price) * 2000).toFixed(0)} USD
-                      </div>
+                  <div className="mb-3">
+                    <div className="text-lg font-bold text-gray-900">
+                      {listing.price} {listing.currency}
                     </div>
-                    <button
-                      onClick={() => handleLike(listing.id)}
-                      className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                    >
-                      <AiOutlineHeart size={20} className="text-gray-400 hover:text-red-500" />
-                      <span className="sr-only">Like</span>
-                    </button>
+                    <div className="text-xs text-gray-500">
+                      ≈ ${(parseFloat(listing.price) * 2000).toFixed(0)} USD
+                    </div>
                   </div>
 
                   <Button
@@ -420,12 +549,6 @@ const MarketplacePage = () => {
                     <AiOutlineShoppingCart size={18} />
                     Buy Now
                   </Button>
-                </div>
-
-                {/* Stats */}
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span>{listing.likes} likes</span>
-                  <span>{listing.views} views</span>
                 </div>
               </div>
             </Card>

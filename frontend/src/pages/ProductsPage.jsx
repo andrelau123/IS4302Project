@@ -14,6 +14,7 @@ import { useWallet } from "../contexts/WalletContext";
 import { ButtonVariants, PRODUCT_STATUS_LABELS, ModalSizes } from "../types";
 import { ethers } from "ethers";
 import ProductRegistryABI from "../contracts/ProductRegistry.json";
+import ProductNFTABI from "../contracts/ProductNFT.json";
 import { toast } from "react-toastify";
 
 const ProductsPage = () => {
@@ -259,6 +260,14 @@ const ProductsPage = () => {
       // Filter out null values and set products
       const validProducts = productsData.filter((p) => p !== null);
       console.log(`[ProductsPage] Loaded ${validProducts.length} products`);
+
+      // Debug: Log owner info
+      validProducts.forEach((p) => {
+        console.log(
+          `Product ${p.name}: currentOwner=${p.currentOwner}, manufacturer=${p.manufacturer}, isVerified=${p.isVerified}`
+        );
+      });
+
       setProducts(validProducts);
 
       if (validProducts.length === 0) {
@@ -323,6 +332,64 @@ const ProductsPage = () => {
     } catch (error) {
       console.error("Error confirming receipt:", error);
       toast.error(error.message || "Failed to confirm receipt");
+    }
+  };
+
+  const handleMintNFT = async (product) => {
+    if (!isConnected || !signer) {
+      toast.error("Please connect your wallet");
+      return;
+    }
+
+    try {
+      const productNFTAddress = process.env.REACT_APP_PRODUCT_NFT_ADDRESS || "";
+      const productNFT = new ethers.Contract(
+        productNFTAddress,
+        ProductNFTABI.abi,
+        signer
+      );
+
+      // Check if NFT already exists for this product
+      const existingNFTId = await productNFT.productIdToNFT(product.id);
+      if (existingNFTId > 0) {
+        toast.warning("NFT already exists for this product!");
+        return;
+      }
+
+      toast.info("Minting NFT... This may take a moment");
+      const tx = await productNFT.mintProductNFT(product.id, account);
+      const receipt = await tx.wait();
+
+      // Get the token ID from the event
+      const mintEvent = receipt.logs.find((log) => {
+        try {
+          const parsed = productNFT.interface.parseLog(log);
+          return parsed.name === "ProductNFTMinted";
+        } catch {
+          return false;
+        }
+      });
+
+      if (mintEvent) {
+        const parsed = productNFT.interface.parseLog(mintEvent);
+        const tokenId = parsed.args.tokenId;
+        toast.success(`🎉 NFT #${tokenId.toString()} minted successfully!`);
+      } else {
+        toast.success("NFT minted successfully!");
+      }
+
+      loadProducts();
+    } catch (error) {
+      console.error("Error minting NFT:", error);
+      if (error.message.includes("NFT already exists")) {
+        toast.error("NFT already exists for this product");
+      } else if (error.message.includes("Product not authentic")) {
+        toast.error("Product must be verified before minting NFT");
+      } else if (error.message.includes("user rejected")) {
+        toast.warning("Transaction cancelled");
+      } else {
+        toast.error(error.message || "Failed to mint NFT");
+      }
     }
   };
 
@@ -622,6 +689,37 @@ const ProductsPage = () => {
                         📦 Confirm Receipt
                       </Button>
                     )}
+
+                  {/* Mint NFT Button - only show if product is verified and user is the current owner */}
+                  {account && product.currentOwner && (
+                    <>
+                      {/* Debug: Show why button isn't showing */}
+                      {!product.isVerified && (
+                        <div className="text-xs text-gray-500 p-2 bg-gray-100 rounded">
+                          ⚠️ Product not verified yet
+                        </div>
+                      )}
+                      {product.isVerified &&
+                        account.toLowerCase() !==
+                          product.currentOwner.toLowerCase() && (
+                          <div className="text-xs text-gray-500 p-2 bg-gray-100 rounded">
+                            ℹ️ Only owner (
+                            {product.currentOwner.substring(0, 6)}...) can mint
+                          </div>
+                        )}
+                      {product.isVerified &&
+                        account.toLowerCase() ===
+                          product.currentOwner.toLowerCase() && (
+                          <Button
+                            variant={ButtonVariants.PRIMARY}
+                            onClick={() => handleMintNFT(product)}
+                            className="w-full bg-purple-600 hover:bg-purple-700"
+                          >
+                            🎨 Mint NFT
+                          </Button>
+                        )}
+                    </>
+                  )}
 
                   <Button
                     variant={ButtonVariants.SECONDARY}
