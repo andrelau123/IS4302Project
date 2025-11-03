@@ -52,29 +52,42 @@ const ProductJourneyTimeline = ({
       icon: <FaIndustry size={20} />,
       color: "blue",
     },
-    ...transferHistory.map((transfer, idx) => ({
-      type: "transfer",
-      timestamp: transfer.timestamp || Date.now(),
-      title: `Transfer #${idx + 1}`,
-      description: `Transferred from ${transfer.from?.slice(
-        0,
-        10
-      )}... to ${transfer.to?.slice(0, 10)}...`,
-      actor: transfer.from,
-      recipient: transfer.to,
-      location: transfer.location || "Unknown",
-      verificationHash: transfer.verificationHash,
-      // Use actual product status instead of hardcoding based on index
-      // If from === to (verification record), show current product status
-      status:
-        transfer.from === transfer.to
-          ? product.status
-          : idx === 0
-          ? 1
-          : product.status,
-      icon: <AiOutlineTruck size={20} />,
-      color: "yellow",
-    })),
+    ...transferHistory.map((transfer, idx) => {
+      // Determine status based on transfer type and location
+      let status;
+      let color;
+
+      if (transfer.from === transfer.to) {
+        // This is a receipt confirmation, status should be AtRetailer (2)
+        status = 2;
+        color = "purple";
+      } else if (transfer.location?.toLowerCase().includes("sold")) {
+        // This is a sale to customer, status should be Sold (3)
+        status = 3;
+        color = "green";
+      } else {
+        // This is an actual transfer between parties, status is InTransit (1)
+        status = 1;
+        color = "yellow";
+      }
+
+      return {
+        type: "transfer",
+        timestamp: transfer.timestamp || Date.now(),
+        title: `Transfer #${idx + 1}`,
+        description: `Transferred from ${transfer.from?.slice(
+          0,
+          10
+        )}... to ${transfer.to?.slice(0, 10)}...`,
+        actor: transfer.from,
+        recipient: transfer.to,
+        location: transfer.location || "Unknown",
+        verificationHash: transfer.verificationHash,
+        status: status,
+        icon: <AiOutlineTruck size={20} />,
+        color: color,
+      };
+    }),
     ...verifications.map((verification, idx) => ({
       type: "verification",
       timestamp: verification.timestamp || Date.now(),

@@ -312,7 +312,7 @@ const MarketplacePage = () => {
     // Request account access if not already granted
     try {
       if (window.ethereum) {
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        await window.ethereum.request({ method: "eth_requestAccounts" });
       }
     } catch (err) {
       toast.error("Please approve the connection in MetaMask");

@@ -262,10 +262,14 @@ const ProductsPage = () => {
       const validProducts = productsData.filter((p) => p !== null);
       console.log(`[ProductsPage] Loaded ${validProducts.length} products`);
 
-      // Debug: Log owner info
+      // Debug: Log owner info and status
       validProducts.forEach((p) => {
         console.log(
-          `Product ${p.name}: currentOwner=${p.currentOwner}, manufacturer=${p.manufacturer}, isVerified=${p.isVerified}`
+          `Product ${p.name}: status=${p.status} (${
+            PRODUCT_STATUS_LABELS[p.status]
+          }), currentOwner=${p.currentOwner}, manufacturer=${
+            p.manufacturer
+          }, isVerified=${p.isVerified}`
         );
       });
 
@@ -390,6 +394,62 @@ const ProductsPage = () => {
         toast.warning("Transaction cancelled");
       } else {
         toast.error(error.message || "Failed to mint NFT");
+      }
+    }
+  };
+
+  const handleMarkAsSold = async (product) => {
+    if (!isConnected || !signer) {
+      toast.error("Please connect your wallet");
+      return;
+    }
+
+    // Request customer address
+    const customerAddress = prompt("Enter customer wallet address (0x...):");
+    if (!customerAddress) {
+      toast.warning("Sale cancelled");
+      return;
+    }
+
+    if (!ethers.isAddress(customerAddress)) {
+      toast.error("Invalid customer address");
+      return;
+    }
+
+    try {
+      const productRegistryAddress =
+        process.env.REACT_APP_PRODUCT_REGISTRY_ADDRESS || "";
+      const productRegistry = new ethers.Contract(
+        productRegistryAddress,
+        ProductRegistryABI.abi,
+        signer
+      );
+
+      toast.info("Marking product as sold...");
+      const tx = await productRegistry.markAsSold(product.id, customerAddress);
+      await tx.wait();
+
+      toast.success(
+        `✅ Product sold to ${customerAddress.substring(
+          0,
+          6
+        )}...${customerAddress.substring(customerAddress.length - 4)}`
+      );
+
+      // Wait a bit for blockchain to update, then reload
+      setTimeout(() => {
+        loadProducts();
+      }, 1000);
+    } catch (error) {
+      console.error("Error marking product as sold:", error);
+      if (error.message.includes("Not product owner")) {
+        toast.error("Only the product owner can mark it as sold");
+      } else if (error.message.includes("Product must be at retailer")) {
+        toast.error("Product must be at retailer status to sell");
+      } else if (error.message.includes("user rejected")) {
+        toast.warning("Transaction cancelled");
+      } else {
+        toast.error(error.message || "Failed to mark product as sold");
       }
     }
   };
@@ -691,10 +751,24 @@ const ProductsPage = () => {
                       </Button>
                     )}
 
+                  {/* Mark as Sold Button - only show if product is AtRetailer and user owns it */}
+                  {product.status === 2 &&
+                    account &&
+                    product.currentOwner &&
+                    account.toLowerCase() ===
+                      product.currentOwner.toLowerCase() && (
+                      <Button
+                        variant={ButtonVariants.PRIMARY}
+                        onClick={() => handleMarkAsSold(product)}
+                        className="w-full bg-orange-500 hover:bg-orange-600"
+                      >
+                        💰 Mark as Sold
+                      </Button>
+                    )}
+
                   {/* Mint NFT Button - only show if product is verified and user is the current owner */}
                   {account && product.currentOwner && (
                     <>
-                      {/* Debug: Show why button isn't showing */}
                       {!product.isVerified && (
                         <div className="text-xs text-gray-500 p-2 bg-gray-100 rounded">
                           ⚠️ Product not verified yet

@@ -177,6 +177,45 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         emit ProductStatusChanged(productId, ProductStatus.AtRetailer);
     }
 
+    /// @notice Mark a product as sold to final customer
+    function markAsSold(
+        bytes32 productId,
+        address customer
+    ) external nonReentrant whenNotPaused {
+        Product storage p = products[productId];
+        require(p.exists, "Product not found");
+        require(p.currentOwner == msg.sender, "Not product owner");
+        require(
+            p.status == ProductStatus.AtRetailer,
+            "Product must be at retailer"
+        );
+        require(customer != address(0), "Invalid customer address");
+
+        p.status = ProductStatus.Sold;
+        p.currentOwner = customer; // Transfer ownership to customer
+
+        // Record sale in history
+        productHistory[productId].push(
+            TransferEvent({
+                from: msg.sender,
+                to: customer,
+                timestamp: block.timestamp,
+                location: "Sold to Customer",
+                verificationHash: keccak256(
+                    abi.encodePacked(productId, customer, block.timestamp)
+                )
+            })
+        );
+
+        emit ProductTransferred(
+            productId,
+            msg.sender,
+            customer,
+            block.timestamp
+        );
+        emit ProductStatusChanged(productId, ProductStatus.Sold);
+    }
+
     function updateProductStatus(
         bytes32 productId,
         ProductStatus newStatus

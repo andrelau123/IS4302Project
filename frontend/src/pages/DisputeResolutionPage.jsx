@@ -11,6 +11,7 @@ import LoadingSpinner from "../components/Common/LoadingSpinner";
 import { ButtonVariants } from "../types";
 import VerificationManagerABI from "../contracts/VerificationManager.json";
 import AuthTokenABI from "../contracts/AuthToken.json";
+import ProductRegistryABI from "../contracts/ProductRegistry.json";
 import { CONTRACT_ADDRESSES } from "../utils/constants";
 
 import DisputeResolutionABI from "../contracts/DisputeResolution.json";
@@ -87,15 +88,52 @@ const DisputeResolutionPage = () => {
       const filter = verificationManager.filters.VerificationCompleted();
       const events = await verificationManager.queryFilter(filter);
 
+      // Get ProductRegistry contract to fetch product names
+      const productRegistryAddress =
+        process.env.REACT_APP_PRODUCT_REGISTRY_ADDRESS ||
+        CONTRACT_ADDRESSES.PRODUCT_REGISTRY;
+      const productRegistry = new ethers.Contract(
+        productRegistryAddress,
+        ProductRegistryABI.abi,
+        provider
+      );
+
       for (const event of events) {
         const request = await verificationManager.requests(
           event.args.requestId
         );
         const block = await event.getBlock();
 
+        // Fetch product name
+        let productName = "Unknown Product";
+        try {
+          const product = await productRegistry.getProduct(request.productId);
+          if (product && product.metadataURI) {
+            // Parse product name from URI (same logic as ProductsPage)
+            let uri = product.metadataURI.replace(/^ipfs:\/\//i, "");
+            const [namePart] = uri.split("#");
+            if (namePart) {
+              let cleanName = namePart
+                .replace(/^Qm[A-Za-z0-9]+[-_]?/i, "")
+                .replace(/-\d+$/, "")
+                .replace(/[-_]/g, " ")
+                .trim();
+              if (cleanName) {
+                productName = cleanName
+                  .split(" ")
+                  .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                  .join(" ");
+              }
+            }
+          }
+        } catch (err) {
+          console.log("Could not fetch product name:", err.message);
+        }
+
         attempts.push({
           requestId: event.args.requestId,
           productId: request.productId,
+          productName: productName,
           verifier: event.args.verifier,
           result: event.args.result,
           requester: request.requester,
@@ -147,16 +185,21 @@ const DisputeResolutionPage = () => {
       // Get all disputes from DisputeCreated events
       const disputeList = [];
       const filter = disputeContract.filters.DisputeCreated();
-      
-      // Force query from latest block to avoid cache issues
-      const latestBlock = await provider.getBlockNumber();
-      const events = await disputeContract.queryFilter(filter, 0, latestBlock);
+      const events = await disputeContract.queryFilter(filter);
+
+      // Get ProductRegistry contract to fetch product names
+      const productRegistryAddress =
+        process.env.REACT_APP_PRODUCT_REGISTRY_ADDRESS ||
+        CONTRACT_ADDRESSES.PRODUCT_REGISTRY;
+      const productRegistry = new ethers.Contract(
+        productRegistryAddress,
+        ProductRegistryABI.abi,
+        provider
+      );
 
       for (const event of events) {
-        // Force read from latest block to get fresh data
         const disputeData = await disputeContract.disputes(
-          event.args.disputeId,
-          { blockTag: "latest" }
+          event.args.disputeId
         );
 
         // DisputeStatus enum: 0=None, 1=Open, 2=UnderReview, 3=Resolved, 4=Rejected, 5=Expired
@@ -169,9 +212,37 @@ const DisputeResolutionPage = () => {
           "Expired",
         ];
 
-        const dispute = {
+        // Fetch product name
+        let productName = "Unknown Product";
+        try {
+          const product = await productRegistry.getProduct(
+            disputeData.productId
+          );
+          if (product && product.metadataURI) {
+            let uri = product.metadataURI.replace(/^ipfs:\/\//i, "");
+            const [namePart] = uri.split("#");
+            if (namePart) {
+              let cleanName = namePart
+                .replace(/^Qm[A-Za-z0-9]+[-_]?/i, "")
+                .replace(/-\d+$/, "")
+                .replace(/[-_]/g, " ")
+                .trim();
+              if (cleanName) {
+                productName = cleanName
+                  .split(" ")
+                  .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                  .join(" ");
+              }
+            }
+          }
+        } catch (err) {
+          console.log("Could not fetch product name:", err.message);
+        }
+
+        disputeList.push({
           disputeId: event.args.disputeId,
           productId: disputeData.productId,
+          productName: productName,
           initiator: event.args.initiator,
           description: disputeData.description,
           evidenceURI: disputeData.evidenceURI,
@@ -183,11 +254,7 @@ const DisputeResolutionPage = () => {
           votesAgainst: Number(disputeData.votesAgainst),
           inFavor: disputeData.inFavor,
           blockNumber: event.blockNumber,
-        };
-        
-        console.log(`[DISPUTE] ID: ${dispute.disputeId.slice(0, 10)}... Status: ${dispute.status} (${dispute.statusLabel}), Votes: ${dispute.votesFor} FOR / ${dispute.votesAgainst} AGAINST`);
-        
-        disputeList.push(dispute);
+        });
       }
 
       // Sort by timestamp descending (newest first)
@@ -195,7 +262,7 @@ const DisputeResolutionPage = () => {
 
       setDisputes(disputeList);
       setLastRefresh(new Date());
-      console.log(`[DISPUTES] Loaded ${disputeList.length} dispute(s)`);
+      console.log(`Loaded ${disputeList.length} dispute(s)`);
     } catch (err) {
       console.error("Error loading disputes:", err);
     } finally {
@@ -427,9 +494,12 @@ const DisputeResolutionPage = () => {
 
                     <div className="grid grid-cols-2 gap-3 text-sm mb-3">
                       <div>
-                        <strong className="text-gray-700">Product ID:</strong>
-                        <div className="font-mono text-xs text-gray-600 mt-1">
-                          {dispute.productId}
+                        <strong className="text-gray-700">Product:</strong>
+                        <div className="text-sm text-gray-900 mt-1 font-medium">
+                          {dispute.productName || "Unknown Product"}
+                        </div>
+                        <div className="font-mono text-xs text-gray-500 mt-0.5">
+                          ID: {dispute.productId.substring(0, 10)}...
                         </div>
                       </div>
                       <div>
@@ -597,9 +667,12 @@ const DisputeResolutionPage = () => {
 
                       <div className="grid grid-cols-2 gap-3 text-sm mb-3">
                         <div>
-                          <strong className="text-gray-700">Product ID:</strong>
-                          <div className="font-mono text-xs text-gray-600 mt-1">
-                            {attempt.productId}
+                          <strong className="text-gray-700">Product:</strong>
+                          <div className="text-sm text-gray-900 mt-1 font-medium">
+                            {attempt.productName || "Unknown Product"}
+                          </div>
+                          <div className="font-mono text-xs text-gray-500 mt-0.5">
+                            ID: {attempt.productId.substring(0, 10)}...
                           </div>
                         </div>
                         <div>
@@ -667,10 +740,13 @@ const DisputeResolutionPage = () => {
               </h3>
               <div className="text-sm space-y-1">
                 <div>
-                  <strong>Product ID:</strong>{" "}
-                  <span className="font-mono text-xs">
-                    {selectedAttempt.productId}
+                  <strong>Product:</strong>{" "}
+                  <span className="font-medium text-gray-900">
+                    {selectedAttempt.productName || "Unknown Product"}
                   </span>
+                  <div className="font-mono text-xs text-gray-500 ml-2 mt-0.5">
+                    ID: {selectedAttempt.productId.substring(0, 10)}...
+                  </div>
                 </div>
                 <div>
                   <strong>Result:</strong>{" "}
