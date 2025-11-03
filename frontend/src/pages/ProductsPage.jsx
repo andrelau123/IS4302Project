@@ -245,7 +245,8 @@ const ProductsPage = () => {
               category: category,
               status: Number(product.status),
               manufacturer: manufacturer,
-              owner: product.currentOwner, // Add current owner
+              owner: product.currentOwner,
+              currentOwner: product.currentOwner, // Add for button condition
               registeredAt: Number(product.registeredAt) * 1000,
               metadataURI: metadataURI,
               isVerified,

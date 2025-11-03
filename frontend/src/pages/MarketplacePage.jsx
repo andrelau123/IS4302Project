@@ -304,8 +304,18 @@ const MarketplacePage = () => {
       return;
     }
 
-    if (!signer) {
+    if (!signer || !account) {
       toast.error("Wallet not properly connected");
+      return;
+    }
+
+    // Request account access if not already granted
+    try {
+      if (window.ethereum) {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+      }
+    } catch (err) {
+      toast.error("Please approve the connection in MetaMask");
       return;
     }
 

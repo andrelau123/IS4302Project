@@ -13,7 +13,8 @@ import ProductRegistryABI from "../../contracts/ProductRegistry.json";
  * Good for adding to product cards or detail views.
  */
 const TransferButton = ({ product, onTransferComplete, className = "" }) => {
-  const { signer, address: currentAddress } = useWallet();
+  const { signer, currentAccount } = useWallet();
+  const currentAddress = currentAccount; // For backward compatibility
   const [isTransferring, setIsTransferring] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [recipientAddress, setRecipientAddress] = useState("");
@@ -39,8 +40,18 @@ const TransferButton = ({ product, onTransferComplete, className = "" }) => {
   const handleTransfer = async (e) => {
     e.preventDefault();
 
-    if (!signer) {
+    if (!signer || !currentAddress) {
       toast.error("Please connect your wallet first");
+      return;
+    }
+
+    // Request account access if not already granted
+    try {
+      if (window.ethereum) {
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+      }
+    } catch (err) {
+      toast.error("Please approve the connection in MetaMask");
       return;
     }
 
@@ -146,11 +157,23 @@ const TransferButton = ({ product, onTransferComplete, className = "" }) => {
   };
 
   const canTransfer =
-    product.currentOwner === currentAddress &&
+    product.currentOwner &&
+    currentAddress &&
+    product.currentOwner.toLowerCase() === currentAddress.toLowerCase() &&
     product.status !== 3 &&
     product.status !== 4;
 
-  if (!canTransfer) return null;
+  if (!canTransfer) {
+    console.log("TransferButton hidden because:", {
+      hasCurrentOwner: !!product.currentOwner,
+      hasCurrentAddress: !!currentAddress,
+      ownersMatch:
+        product.currentOwner?.toLowerCase() === currentAddress?.toLowerCase(),
+      status: product.status,
+      statusOk: product.status !== 3 && product.status !== 4,
+    });
+    return null;
+  }
 
   if (!showForm) {
     return (

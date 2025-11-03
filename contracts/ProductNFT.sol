@@ -175,6 +175,13 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
             return true;
         }
 
+        // Allow transfers from addresses with TRANSFER_VALIDATOR_ROLE (marketplaces)
+        // This allows marketplace contracts to transfer to any buyer
+        address currentOwner = _ownerOf(tokenId);
+        if (hasRole(TRANSFER_VALIDATOR_ROLE, currentOwner)) {
+            return true;
+        }
+
         // If retailer authorization is required
         if (requireRetailerAuthorization) {
             bytes32 productId = nftToProductId[tokenId];
