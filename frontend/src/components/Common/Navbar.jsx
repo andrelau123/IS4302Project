@@ -1,61 +1,65 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { 
-  AiOutlineWallet, 
-  AiOutlineMenu, 
+import React, { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import {
+  AiOutlineWallet,
+  AiOutlineMenu,
   AiOutlineClose,
   AiOutlineShop,
   AiOutlineSafetyCertificate,
-  AiOutlineUser,
   AiOutlineBarChart,
-  AiOutlineWarning
-} from 'react-icons/ai';
-import { FaBoxes, FaNetworkWired } from 'react-icons/fa';
-import { MdVerified } from 'react-icons/md';
-import Button from './Button';
-import { useWallet } from '../../contexts/WalletContext';
-import { ButtonVariants } from '../../types';
+  AiOutlineWarning,
+} from "react-icons/ai";
+import { FaBoxes, FaNetworkWired } from "react-icons/fa";
+import { MdVerified } from "react-icons/md";
+import Button from "./Button";
+import { useWallet } from "../../contexts/WalletContext";
+import { ButtonVariants } from "../../types";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { 
-    connectWallet, 
-    disconnectWallet, 
-    currentAccount, 
-    isConnecting, 
+  const {
+    connectWallet,
+    disconnectWallet,
+    currentAccount,
+    isConnecting,
     balance,
     isCorrectNetwork,
     switchToHardhatNetwork,
-    formatAddress
+    formatAddress,
   } = useWallet();
   const location = useLocation();
 
   const navigationItems = [
     {
-      path: '/',
-      label: 'Dashboard',
-      icon: <AiOutlineBarChart size={20} />
+      path: "/",
+      label: "Dashboard",
+      icon: <AiOutlineBarChart size={20} />,
     },
     {
-      path: '/products',
-      label: 'Products',
-      icon: <FaBoxes size={20} />
+      path: "/products",
+      label: "Products",
+      icon: <FaBoxes size={20} />,
     },
     {
-      path: '/marketplace',
-      label: 'Marketplace',
-      icon: <AiOutlineShop size={20} />
+      path: "/product-journey",
+      label: "Track Journey",
+      icon: <FaNetworkWired size={20} />,
     },
     {
-      path: '/verification',
-      label: 'Verification',
-      icon: <AiOutlineSafetyCertificate size={20} />
+      path: "/dispute-resolution",
+      label: "Dispute Resolution",
+      icon: <MdVerified size={20} />,
     },
     {
-      path: '/retailers',
-      label: 'Retailers',
-      icon: <AiOutlineUser size={20} />
-    }
+      path: "/marketplace",
+      label: "Marketplace",
+      icon: <AiOutlineShop size={20} />,
+    },
+    {
+      path: "/verification",
+      label: "Verification",
+      icon: <AiOutlineSafetyCertificate size={20} />,
+    },
   ];
 
   const toggleMenu = () => {
@@ -63,7 +67,7 @@ const Navbar = () => {
   };
 
   const formatBalance = (balance) => {
-    if (!balance) return '';
+    if (!balance) return "";
     const numBalance = parseFloat(balance);
     return numBalance.toFixed(4);
   };
@@ -82,84 +86,90 @@ const Navbar = () => {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-lg border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-full mx-auto px-2 sm:px-4 lg:px-6">
         <div className="flex justify-between items-center h-16">
           {/* Logo and Brand */}
-          <div className="flex items-center">
+          <div className="flex items-center flex-shrink-0">
             <Link to="/" className="flex items-center space-x-2">
-              <MdVerified className="text-primary-blue" size={32} />
-              <span className="text-xl font-bold text-gray-900">
+              <MdVerified className="text-primary-blue" size={28} />
+              <span className="text-lg lg:text-xl font-bold text-gray-900">
                 ProductVerify
               </span>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center space-x-0.5 lg:space-x-2 flex-1 justify-center mx-2">
             {navigationItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+                className={`flex items-center space-x-1 px-1.5 lg:px-2 py-2 rounded-md text-xs font-medium transition-colors duration-200 whitespace-nowrap ${
                   isActive(item.path)
-                    ? 'text-primary-blue bg-blue-50 border-b-2 border-primary-blue'
-                    : 'text-gray-700 hover:text-primary-blue hover:bg-gray-50'
+                    ? "text-primary-blue bg-blue-50 border-b-2 border-primary-blue"
+                    : "text-gray-700 hover:text-primary-blue hover:bg-gray-50"
                 }`}
               >
                 {item.icon}
-                <span>{item.label}</span>
+                <span className="hidden xl:inline text-xs">{item.label}</span>
+                <span className="xl:hidden text-xs">
+                  {item.label.split(" ")[0]}
+                </span>
               </Link>
             ))}
           </div>
 
           {/* Wallet Section */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-1 flex-shrink-0">
             {/* Network Status */}
             {currentAccount && !isCorrectNetwork && (
-              <div className="hidden sm:flex items-center space-x-1 text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded">
-                <AiOutlineWarning size={14} />
-                <span>Wrong Network</span>
+              <div className="hidden xl:flex items-center space-x-1 text-xs text-yellow-600 bg-yellow-50 px-1.5 py-1 rounded">
+                <AiOutlineWarning size={12} />
+                <span className="text-xs">Wrong</span>
               </div>
             )}
-            
+
             {currentAccount && (
-              <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
-                <span className="font-medium">{formatAddress(currentAccount)}</span>
+              <div className="hidden xl:flex items-center space-x-1 text-xs text-gray-600">
+                <span className="font-medium text-xs">
+                  {formatAddress(currentAccount)}
+                </span>
                 {balance && (
-                  <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                    {formatBalance(balance)} ETH
+                  <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">
+                    {formatBalance(balance)}
                   </span>
                 )}
               </div>
             )}
-            
+
             {/* Network Switch Button */}
             {currentAccount && !isCorrectNetwork && (
               <Button
                 variant={ButtonVariants.WARNING}
                 onClick={switchToHardhatNetwork}
-                className="flex items-center space-x-1 text-xs"
+                className="flex items-center space-x-1 text-xs px-1.5 py-1"
                 size="sm"
               >
-                <FaNetworkWired size={14} />
-                <span className="hidden sm:inline">Switch Network</span>
+                <FaNetworkWired size={12} />
+                <span className="hidden xl:inline text-xs">Switch</span>
               </Button>
             )}
-            
+
             <Button
-              variant={currentAccount ? ButtonVariants.SUCCESS : ButtonVariants.PRIMARY}
+              variant={
+                currentAccount ? ButtonVariants.SUCCESS : ButtonVariants.PRIMARY
+              }
               onClick={handleWalletAction}
               disabled={isConnecting}
-              className="flex items-center space-x-2"
+              className="flex items-center space-x-1 text-xs px-2 py-1.5"
             >
-              <AiOutlineWallet size={20} />
-              <span className="hidden sm:inline">
-                {isConnecting 
-                  ? 'Connecting...' 
-                  : currentAccount 
-                    ? 'Disconnect' 
-                    : 'Connect Wallet'
-                }
+              <AiOutlineWallet size={16} />
+              <span className="hidden sm:inline text-xs">
+                {isConnecting
+                  ? "..."
+                  : currentAccount
+                  ? "Disconnect"
+                  : "Connect"}
               </span>
             </Button>
 
@@ -168,7 +178,11 @@ const Navbar = () => {
               onClick={toggleMenu}
               className="md:hidden p-2 rounded-md text-gray-700 hover:text-primary-blue hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-blue"
             >
-              {isMenuOpen ? <AiOutlineClose size={24} /> : <AiOutlineMenu size={24} />}
+              {isMenuOpen ? (
+                <AiOutlineClose size={24} />
+              ) : (
+                <AiOutlineMenu size={24} />
+              )}
             </button>
           </div>
         </div>
@@ -185,20 +199,22 @@ const Navbar = () => {
                 onClick={() => setIsMenuOpen(false)}
                 className={`flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 ${
                   isActive(item.path)
-                    ? 'text-primary-blue bg-blue-50'
-                    : 'text-gray-700 hover:text-primary-blue hover:bg-gray-50'
+                    ? "text-primary-blue bg-blue-50"
+                    : "text-gray-700 hover:text-primary-blue hover:bg-gray-50"
                 }`}
               >
                 {item.icon}
                 <span>{item.label}</span>
               </Link>
             ))}
-            
+
             {/* Mobile wallet info */}
             {currentAccount && (
               <div className="px-3 py-2 border-t border-gray-200 mt-3">
                 <div className="text-sm text-gray-600">
-                  <div className="font-medium">{formatAddress(currentAccount)}</div>
+                  <div className="font-medium">
+                    {formatAddress(currentAccount)}
+                  </div>
                   {balance && (
                     <div className="text-xs text-gray-500 mt-1">
                       Balance: {formatBalance(balance)} ETH

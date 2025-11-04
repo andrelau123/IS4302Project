@@ -17,7 +17,8 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
  */
 contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    bytes32 public constant TRANSFER_VALIDATOR_ROLE = keccak256("TRANSFER_VALIDATOR_ROLE");
+    bytes32 public constant TRANSFER_VALIDATOR_ROLE =
+        keccak256("TRANSFER_VALIDATOR_ROLE");
 
     ProductRegistry public immutable productRegistry;
     RetailerRegistry public immutable retailerRegistry;
@@ -27,10 +28,10 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
     // Transfer restriction settings
     bool public transferRestrictionsEnabled = true;
     bool public requireRetailerAuthorization = true;
-    
+
     // Whitelisted addresses that can always receive NFTs (e.g., marketplaces, escrow)
     mapping(address => bool) public whitelistedAddresses;
-    
+
     // Track transfer history for secondary market analytics
     struct TransferRecord {
         address from;
@@ -42,7 +43,7 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
     mapping(uint256 => bytes32) public nftToProductId;
     mapping(bytes32 => uint256) public productIdToNFT;
     mapping(uint256 => TransferRecord[]) public transferHistory;
-    
+
     // Royalty info for secondary sales (EIP-2981 compatible)
     uint256 public royaltyPercentage = 250; // 2.5% in basis points
     address public royaltyReceiver;
@@ -70,11 +71,11 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
     ) ERC721("Authentic Product NFT", "AUTH-NFT") {
         require(_productRegistry != address(0), "Invalid ProductRegistry");
         require(_retailerRegistry != address(0), "Invalid RetailerRegistry");
-        
+
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MINTER_ROLE, msg.sender);
         _grantRole(TRANSFER_VALIDATOR_ROLE, msg.sender);
-        
+
         productRegistry = ProductRegistry(_productRegistry);
         retailerRegistry = RetailerRegistry(_retailerRegistry);
         royaltyReceiver = msg.sender;
@@ -85,11 +86,21 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
     function mintProductNFT(
         bytes32 productId,
         address owner
-    ) external onlyRole(MINTER_ROLE) nonReentrant whenNotPaused returns (uint256) {
+    ) external nonReentrant whenNotPaused returns (uint256) {
         require(productIdToNFT[productId] == 0, "NFT already exists");
         require(
             productRegistry.isAuthentic(productId),
             "Product not authentic"
+        );
+
+        // Get product details to check current owner
+        (, , address currentOwner, , , , , ) = productRegistry.products(
+            productId
+        );
+
+        require(
+            currentOwner == msg.sender,
+            "Only current product owner can mint NFT"
         );
 
         _tokenIdCounter++;
@@ -101,12 +112,14 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         productIdToNFT[productId] = tokenId;
 
         // Initialize transfer history
-        transferHistory[tokenId].push(TransferRecord({
-            from: address(0),
-            to: owner,
-            timestamp: block.timestamp,
-            price: 0
-        }));
+        transferHistory[tokenId].push(
+            TransferRecord({
+                from: address(0),
+                to: owner,
+                timestamp: block.timestamp,
+                price: 0
+            })
+        );
 
         emit ProductNFTMinted(tokenId, productId, owner);
 
@@ -125,7 +138,7 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         address auth
     ) internal virtual override whenNotPaused returns (address) {
         address from = _ownerOf(tokenId);
-        
+
         // Allow minting (from == address(0)) and burning (to == address(0))
         if (from != address(0) && to != address(0)) {
             // Check transfer restrictions
@@ -135,11 +148,11 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
                     "Recipient not authorized"
                 );
             }
-            
+
             // Record transfer in history
             _recordTransfer(tokenId, from, to, 0);
         }
-        
+
         return super._update(to, tokenId, auth);
     }
 
@@ -148,26 +161,36 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
      * @param recipient Address to check
      * @param tokenId Token being transferred
      */
-    function _isAuthorizedRecipient(address recipient, uint256 tokenId) internal view returns (bool) {
+    function _isAuthorizedRecipient(
+        address recipient,
+        uint256 tokenId
+    ) internal view returns (bool) {
         // Always allow whitelisted addresses (marketplaces, escrow contracts)
         if (whitelistedAddresses[recipient]) {
             return true;
         }
-        
+
         // Always allow current owner (should not happen but safe check)
         if (recipient == _ownerOf(tokenId)) {
             return true;
         }
-        
+
+        // Allow transfers from addresses with TRANSFER_VALIDATOR_ROLE (marketplaces)
+        // This allows marketplace contracts to transfer to any buyer
+        address currentOwner = _ownerOf(tokenId);
+        if (hasRole(TRANSFER_VALIDATOR_ROLE, currentOwner)) {
+            return true;
+        }
+
         // If retailer authorization is required
         if (requireRetailerAuthorization) {
             bytes32 productId = nftToProductId[tokenId];
             address brand = productRegistry.getBrandOwner(productId);
-            
+
             // Check if recipient is an authorized retailer for this brand
             return retailerRegistry.isAuthorizedRetailer(brand, recipient);
         }
-        
+
         // If no restrictions, allow all transfers
         return true;
     }
@@ -185,13 +208,15 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         address to,
         uint256 price
     ) internal {
-        transferHistory[tokenId].push(TransferRecord({
-            from: from,
-            to: to,
-            timestamp: block.timestamp,
-            price: price
-        }));
-        
+        transferHistory[tokenId].push(
+            TransferRecord({
+                from: from,
+                to: to,
+                timestamp: block.timestamp,
+                price: price
+            })
+        );
+
         emit TransferRecorded(tokenId, from, to, block.timestamp, price);
     }
 
@@ -207,7 +232,7 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
     ) external onlyRole(TRANSFER_VALIDATOR_ROLE) {
         require(_ownerOf(tokenId) != address(0), "Token does not exist");
         require(price > 0, "Price must be positive");
-        
+
         // Update the last transfer record with price
         TransferRecord[] storage history = transferHistory[tokenId];
         if (history.length > 0) {
@@ -221,7 +246,9 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
      * @notice Enable or disable transfer restrictions
      * @param enabled Whether restrictions should be enabled
      */
-    function setTransferRestrictions(bool enabled) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setTransferRestrictions(
+        bool enabled
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         transferRestrictionsEnabled = enabled;
         emit TransferRestrictionUpdated(enabled);
     }
@@ -230,7 +257,9 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
      * @notice Enable or disable retailer authorization requirement
      * @param required Whether retailer authorization is required
      */
-    function setRetailerAuthorizationRequirement(bool required) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setRetailerAuthorizationRequirement(
+        bool required
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         requireRetailerAuthorization = required;
         emit RetailerAuthorizationRequirementUpdated(required);
     }
@@ -276,10 +305,10 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(receiver != address(0), "Invalid receiver");
         require(percentage <= 1000, "Royalty too high"); // Max 10%
-        
+
         royaltyReceiver = receiver;
         royaltyPercentage = percentage;
-        
+
         emit RoyaltyInfoUpdated(receiver, percentage);
     }
 
@@ -299,7 +328,7 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         require(_ownerOf(tokenId) != address(0), "Token does not exist");
 
         bytes32 productId = nftToProductId[tokenId];
-        (, , , , , string memory metadataURI, ) = productRegistry.products(
+        (, , , , , string memory metadataURI, , ) = productRegistry.products(
             productId
         );
 
@@ -311,7 +340,9 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
      * @param tokenId Token to query
      * @return Array of transfer records
      */
-    function getTransferHistory(uint256 tokenId) external view returns (TransferRecord[] memory) {
+    function getTransferHistory(
+        uint256 tokenId
+    ) external view returns (TransferRecord[] memory) {
         require(_ownerOf(tokenId) != address(0), "Token does not exist");
         return transferHistory[tokenId];
     }
@@ -331,7 +362,10 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
      * @param tokenId Token being checked
      * @return Whether the recipient is authorized
      */
-    function canReceiveNFT(address recipient, uint256 tokenId) external view returns (bool) {
+    function canReceiveNFT(
+        address recipient,
+        uint256 tokenId
+    ) external view returns (bool) {
         if (!transferRestrictionsEnabled) {
             return true;
         }
@@ -377,6 +411,7 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         bytes4 interfaceId
     ) public view override(ERC721, AccessControl) returns (bool) {
         // EIP-2981 interface ID
-        return interfaceId == 0x2a55205a || super.supportsInterface(interfaceId);
+        return
+            interfaceId == 0x2a55205a || super.supportsInterface(interfaceId);
     }
 }

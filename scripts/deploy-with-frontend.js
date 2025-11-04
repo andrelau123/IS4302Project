@@ -85,17 +85,54 @@ async function main() {
   await oracleIntegration.waitForDeployment();
   console.log("OracleIntegration deployed to:", oracleIntegration.target);
 
-  // Deploy DisputeResolution (productRegistry, authToken)
+  // Deploy DisputeResolution (productRegistry, authToken, verificationManager)
   console.log("\nDeploying DisputeResolution...");
   const DisputeResolution = await ethers.getContractFactory(
     "DisputeResolution"
   );
   const disputeResolution = await DisputeResolution.deploy(
     productRegistry.target,
-    authToken.target
+    authToken.target,
+    verificationManager.target
   );
   await disputeResolution.waitForDeployment();
   console.log("DisputeResolution deployed to:", disputeResolution.target);
+
+  // Fund DisputeResolution contract with AUTH tokens for rewards
+  console.log("\nFunding DisputeResolution with AUTH tokens...");
+  const disputeFundAmount = ethers.parseEther("1000"); // 1000 AUTH for rewards
+  let tx = await authToken.transfer(
+    disputeResolution.target,
+    disputeFundAmount
+  );
+  await tx.wait();
+  console.log("✅ DisputeResolution funded with 1000 AUTH");
+
+  // Grant SLASHER_ROLE to DisputeResolution so it can slash bad verifiers
+  console.log("\nGranting SLASHER_ROLE to DisputeResolution...");
+  const SLASHER_ROLE = await verificationManager.SLASHER_ROLE();
+  tx = await verificationManager.grantRole(
+    SLASHER_ROLE,
+    disputeResolution.target
+  );
+  await tx.wait();
+  console.log("✅ DisputeResolution can now slash bad verifiers");
+
+  // Grant VERIFIER_ROLE to VerificationManager so it can record verifications
+  console.log("\nGranting VERIFIER_ROLE to VerificationManager...");
+  const VERIFIER_ROLE = await productRegistry.VERIFIER_ROLE();
+  tx = await productRegistry.grantRole(
+    VERIFIER_ROLE,
+    verificationManager.target
+  );
+  await tx.wait();
+  console.log("✅ VerificationManager can now record verifications");
+
+  // Grant VERIFIER_ROLE to DisputeResolution so it can mark products as disputed
+  console.log("\nGranting VERIFIER_ROLE to DisputeResolution...");
+  tx = await productRegistry.grantRole(VERIFIER_ROLE, disputeResolution.target);
+  await tx.wait();
+  console.log("✅ DisputeResolution can now mark products as disputed");
 
   // Deploy GovernanceVoting (authToken, admin)
   console.log("\nDeploying GovernanceVoting...");
@@ -120,24 +157,8 @@ async function main() {
   // Configure roles and cross-contract permissions
   console.log("\nConfiguring contract roles and permissions...");
 
-  // Grant MINTER_ROLE to deployer for ProductNFT (safe even if constructor already set it)
-  try {
-    const MINTER_ROLE = await productNFT.MINTER_ROLE();
-    const hasMinter = await productNFT.hasRole(MINTER_ROLE, deployer.address);
-    if (!hasMinter) {
-      console.log("Granting MINTER_ROLE to deployer on ProductNFT...");
-      const tx = await productNFT.grantRole(MINTER_ROLE, deployer.address);
-      await tx.wait();
-      console.log("\u2705 MINTER_ROLE granted to deployer on ProductNFT");
-    } else {
-      console.log("Deployer already has MINTER_ROLE on ProductNFT");
-    }
-  } catch (err) {
-    console.warn(
-      "Could not grant MINTER_ROLE on ProductNFT:",
-      err?.message || err
-    );
-  }
+  // MINTER_ROLE no longer needed - current product owner can mint
+  console.log("ProductNFT: Current product owner can mint (no role required)");
 
   // Whitelist marketplace for NFT transfers (if function exists)
   try {
@@ -302,16 +323,131 @@ async function main() {
 
     // Write demo retailers to frontend data so UI can load them quickly
     try {
-      const demoPath = path.join(__dirname, '..', 'frontend', 'src', 'data', 'demoRetailers.json');
+      const demoPath = path.join(
+        __dirname,
+        "..",
+        "frontend",
+        "src",
+        "data",
+        "demoRetailers.json"
+      );
       if (demoRetailers.length > 0) {
-        fs.writeFileSync(demoPath, JSON.stringify({ retailers: demoRetailers }, null, 2));
-        console.log('Wrote demo retailers to frontend/src/data/demoRetailers.json');
+        fs.writeFileSync(
+          demoPath,
+          JSON.stringify({ retailers: demoRetailers }, null, 2)
+        );
+        console.log(
+          "Wrote demo retailers to frontend/src/data/demoRetailers.json"
+        );
       }
     } catch (err) {
-      console.warn('Could not write demo retailers file:', err?.message || err);
+      console.warn("Could not write demo retailers file:", err?.message || err);
     }
+
+    // Authorize accounts 17, 18, 19 as retailers for the manufacturer (deployer/signer[0])
+    console.log(
+      "\nAuthorizing accounts 17-19 as retailers for manufacturer..."
+    );
+    const manufacturer = deployer; // Account 0 has MANUFACTURER_ROLE
+    const retailersToAuthorize = [signers[17], signers[18], signers[19]];
+
+    for (let i = 0; i < retailersToAuthorize.length; i++) {
+      const accountNumber = 17 + i;
+      const retailer = retailersToAuthorize[i];
+
+      try {
+        // Check if already authorized
+        const isAuthorized = await retailerRegistry.isAuthorizedRetailer(
+          manufacturer.address,
+          retailer.address
+        );
+
+        if (isAuthorized) {
+          console.log(
+            `✅ Account ${accountNumber} (${retailer.address}) already authorized`
+          );
+        } else {
+          // Authorize the retailer using the correct function name
+          const tx = await retailerRegistry
+            .connect(deployer) // Use deployer who has BRAND_MANAGER_ROLE
+            .authorizeRetailerForBrand(manufacturer.address, retailer.address);
+          await tx.wait();
+          console.log(
+            `✅ Authorized Account ${accountNumber} (${retailer.address}) for brand ${manufacturer.address}`
+          );
+        }
+      } catch (err) {
+        console.warn(
+          `⚠️  Could not authorize Account ${accountNumber}:`,
+          err?.message || err
+        );
+      }
+    }
+    console.log("✅ Retailer authorization complete!");
   } catch (err) {
     console.warn("Error while pre-seeding retailers:", err?.message || err);
+  }
+
+  // Register accounts 10-15 as verifiers
+  try {
+    console.log("\nRegistering accounts 10-15 as verifiers...");
+    const minStake = await verificationManager.minStakeAmount();
+    console.log(`Minimum stake: ${ethers.formatEther(minStake)} AUTH`);
+
+    for (let i = 10; i <= 15; i++) {
+      const verifier = signers[i];
+      console.log(`\nAccount ${i}: ${verifier.address}`);
+
+      try {
+        // Check if already registered
+        const verifierInfo = await verificationManager.verifiers(
+          verifier.address
+        );
+        if (verifierInfo.isActive) {
+          console.log(`  ✓ Already registered`);
+          continue;
+        }
+
+        // Transfer AUTH tokens if needed
+        const balance = await authToken.balanceOf(verifier.address);
+        if (balance < minStake) {
+          console.log(
+            `  📤 Transferring ${ethers.formatEther(minStake)} AUTH...`
+          );
+          const transferTx = await authToken.transfer(
+            verifier.address,
+            minStake
+          );
+          await transferTx.wait();
+        }
+
+        // Approve VerificationManager
+        console.log(`  🔓 Approving tokens...`);
+        const approveTx = await authToken
+          .connect(verifier)
+          .approve(verificationManager.target, minStake);
+        await approveTx.wait();
+
+        // Register as verifier
+        console.log(`  📝 Registering...`);
+        const registerTx = await verificationManager
+          .connect(verifier)
+          .registerVerifier(minStake);
+        await registerTx.wait();
+
+        console.log(
+          `  ✅ Registered! Staked ${ethers.formatEther(minStake)} AUTH`
+        );
+      } catch (err) {
+        console.warn(
+          `  ⚠️  Could not register Account ${i}:`,
+          err?.message || err
+        );
+      }
+    }
+    console.log("\n✅ Verifier registration complete!");
+  } catch (err) {
+    console.warn("Error while registering verifiers:", err?.message || err);
   }
 
   // Create frontend environment file with all deployed addresses

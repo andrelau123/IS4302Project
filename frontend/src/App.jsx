@@ -7,6 +7,8 @@ import { WalletProvider } from "./contexts/WalletContext";
 import Navbar from "./components/Common/Navbar";
 import Dashboard from "./components/Dashboard/Dashboard";
 import ProductsPage from "./pages/ProductsPage";
+import ProductJourneyPage from "./pages/ProductJourneyPage";
+import DisputeResolutionPage from "./pages/DisputeResolutionPage";
 import MarketplacePage from "./pages/MarketplacePage";
 import VerificationPage from "./pages/VerificationPage";
 import RetailersPage from "./pages/RetailersPage";
@@ -24,6 +26,11 @@ function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/products" element={<ProductsPage />} />
+              <Route path="/product-journey" element={<ProductJourneyPage />} />
+              <Route
+                path="/dispute-resolution"
+                element={<DisputeResolutionPage />}
+              />
               <Route path="/marketplace" element={<MarketplacePage />} />
               <Route path="/verification" element={<VerificationPage />} />
               <Route path="/retailers" element={<RetailersPage />} />
