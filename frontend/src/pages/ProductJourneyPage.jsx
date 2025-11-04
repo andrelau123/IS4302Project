@@ -22,6 +22,7 @@ const ProductJourneyPage = () => {
   const [transferHistory, setTransferHistory] = useState([]);
   const [verifications, setVerifications] = useState([]);
   const [disputes, setDisputes] = useState([]);
+  const [oracleData, setOracleData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -235,6 +236,63 @@ const ProductJourneyPage = () => {
         setDisputes([]);
       }
 
+      // Load oracle attestations for this product (optional)
+      try {
+        const oracleAddress =
+          CONTRACT_ADDRESSES.ORACLE_INTEGRATION ||
+          process.env.REACT_APP_ORACLE_INTEGRATION_ADDRESS;
+
+        if (oracleAddress && oracleAddress !== "0x...") {
+          let OracleABI;
+          try {
+            OracleABI = (await import("../contracts/OracleIntegration.json")).abi;
+          } catch (impErr) {
+            // Fallback minimal ABI containing only the Attested event so we can query logs
+            OracleABI = [
+              {
+                anonymous: false,
+                inputs: [
+                  { indexed: true, internalType: "bytes32", name: "requestId", type: "bytes32" },
+                  { indexed: true, internalType: "bytes32", name: "productId", type: "bytes32" },
+                  { indexed: true, internalType: "address", name: "signer", type: "address" },
+                  { indexed: false, internalType: "bool", name: "verdict", type: "bool" },
+                  { indexed: false, internalType: "uint8", name: "weight", type: "uint8" },
+                  { indexed: false, internalType: "string", name: "evidenceURI", type: "string" },
+                  { indexed: false, internalType: "uint256", name: "readingCode", type: "uint256" },
+                  { indexed: false, internalType: "int256", name: "readingValue", type: "int256" },
+                  { indexed: false, internalType: "uint256", name: "timestamp", type: "uint256" },
+                ],
+                name: "Attested",
+                type: "event",
+              },
+            ];
+          }
+          const oracle = new ethers.Contract(oracleAddress, OracleABI, provider);
+
+          // Attested(bytes32 indexed requestId, bytes32 indexed productId, address indexed signer, bool verdict, uint8 weight, string evidenceURI, uint256 readingCode, int256 readingValue, uint256 timestamp)
+          const filter = oracle.filters.Attested(null, id);
+          const events = await oracle.queryFilter(filter);
+
+          const mapped = events.map((ev) => ({
+            requestId: ev.args.requestId,
+            productId: ev.args.productId,
+            submitter: ev.args.signer,
+            verdict: ev.args.verdict,
+            weight: Number(ev.args.weight),
+            evidenceURI: ev.args.evidenceURI,
+            readingCode: Number(ev.args.readingCode),
+            readingValue: Number(ev.args.readingValue),
+            timestamp: Number(ev.args.timestamp) * 1000,
+            hash: ev.transactionHash,
+          }));
+
+          setOracleData(mapped.sort((a, b) => a.timestamp - b.timestamp));
+        }
+      } catch (oracleErr) {
+        console.warn("Could not load oracle attestations:", oracleErr);
+        setOracleData([]);
+      }
+
       toast.success("Product journey loaded successfully!");
     } catch (err) {
       console.error("Error loading product journey:", err);
@@ -413,6 +471,7 @@ const ProductJourneyPage = () => {
             transferHistory={transferHistory}
             verifications={verifications}
             disputes={disputes}
+            oracleData={oracleData}
           />
         </div>
       )}

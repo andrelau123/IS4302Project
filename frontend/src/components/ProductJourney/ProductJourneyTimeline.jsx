@@ -41,6 +41,12 @@ const ProductJourneyTimeline = ({
   disputes = [],
   oracleData = [],
 }) => {
+  // Human-readable labels for reading codes
+  const READING_LABELS = {
+    1: { label: "Temperature", unit: "°C" },
+    2: { label: "GPS", unit: "" },
+    3: { label: "Shock", unit: "g" },
+  };
   // Combine all events and sort by timestamp
   const allEvents = [
     {
@@ -89,6 +95,28 @@ const ProductJourneyTimeline = ({
         color: color,
       };
     }),
+    // Map oracle attestations into timeline events
+    ...oracleData.map((o, idx) => ({
+      type: "oracle",
+      timestamp: o.timestamp || Date.now(),
+      title: `Oracle Attestation #${idx + 1}`,
+      // keep a short summary for the timeline card
+      description:
+        o.summary || (o.verdict !== undefined ? (o.verdict ? "Pass" : "Fail") : "Oracle attestation"),
+      actor: o.submitter || o.signer || "Oracle",
+      attestationHash: o.hash || o.attestationHash || o.id,
+      // structured fields for better display
+      submitter: o.submitter || o.signer,
+      verdict: o.verdict,
+      weight: o.weight,
+      evidenceURI: o.evidenceURI,
+      readingCode: o.readingCode,
+      readingValue: o.readingValue,
+      payload: o.payload || o.value,
+      status: "attested",
+      icon: <AiOutlineEnvironment size={20} />,
+      color: "blue",
+    })),
     ...verifications.map((verification, idx) => ({
       type: "verification",
       timestamp: verification.timestamp || Date.now(),
@@ -375,6 +403,97 @@ const ProductJourneyTimeline = ({
                       {event.status === "failed"
                         ? "Verification Failed"
                         : "Verified Authentic"}
+                    </div>
+                  )}
+
+                  {/* Oracle Attestation Badge */}
+                  {event.type === "oracle" && (
+                    <div className="mt-3 space-y-2">
+                      <div
+                        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-300`}
+                      >
+                        <AiOutlineEnvironment />
+                        Attested by Oracle
+                      </div>
+                      {event.attestationHash && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-gray-600">
+                            Tx: {" "}
+                            <a
+                              className="font-mono text-gray-800 underline"
+                              href={`#`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                navigator.clipboard && navigator.clipboard.writeText(event.attestationHash);
+                              }}
+                              title={event.attestationHash}
+                            >
+                              {formatAddress(event.attestationHash)}
+                            </a>
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Human readable attestation fields */}
+                      <div className="grid grid-cols-1 gap-2 mt-2 text-sm text-gray-600">
+                        {event.submitter && (
+                          <div className="flex items-center gap-2">
+                            <AiOutlineUser className="text-gray-400" />
+                            <span>
+                              Submitter: <span className="font-mono text-gray-800">{formatAddress(event.submitter)}</span>
+                            </span>
+                          </div>
+                        )}
+
+                        {event.verdict !== undefined && (
+                          <div className="flex items-center gap-2">
+                            <AiOutlineCheckCircle className="text-gray-400" />
+                            <span>
+                              Verdict: <span className={`font-medium ${event.verdict ? 'text-green-700' : 'text-red-700'}`}>{event.verdict ? 'PASS' : 'FAIL'}</span>
+                            </span>
+                          </div>
+                        )}
+
+                        {event.weight !== undefined && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-400">⚖️</span>
+                            <span>Weight: <span className="font-medium text-gray-800">{event.weight}</span></span>
+                          </div>
+                        )}
+
+                        {event.evidenceURI && (
+                          <div className="flex items-center gap-2">
+                            <AiOutlineEnvironment className="text-gray-400" />
+                            <a className="text-blue-600 underline" href={event.evidenceURI.startsWith('ipfs://') ? `https://ipfs.io/ipfs/${event.evidenceURI.replace('ipfs://','')}` : event.evidenceURI} target="_blank" rel="noreferrer">Evidence</a>
+                          </div>
+                        )}
+
+                        {(event.readingCode !== undefined || event.readingValue !== undefined) && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-400">🔢</span>
+                            <span>
+                              {(() => {
+                                const code = Number(event.readingCode || 0);
+                                const value = event.readingValue ?? "-";
+                                const meta = READING_LABELS[code];
+                                if (meta) {
+                                  return (
+                                    <span>
+                                      {meta.label}: <span className="font-mono text-gray-800">{value}{meta.unit}</span>
+                                    </span>
+                                  );
+                                }
+                                // fallback
+                                return (
+                                  <span>
+                                    Reading {event.readingCode ?? '-'}: <span className="font-mono text-gray-800">{value}</span>
+                                  </span>
+                                );
+                              })()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 

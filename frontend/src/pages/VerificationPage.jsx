@@ -502,6 +502,26 @@ const VerificationPage = () => {
                             🏭 {String(p.manufacturer).slice(0, 10)}...
                           </span>
                         </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <div className="text-xs text-gray-500 mr-2">Product ID</div>
+                          <div className="font-mono text-xs text-gray-600 break-words">
+                            {String(p.productId)}
+                          </div>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(String(p.productId));
+                                toast.success('Product ID copied to clipboard');
+                              } catch (e) {
+                                console.error('copy failed', e);
+                                toast.error('Failed to copy Product ID');
+                              }
+                            }}
+                            className="ml-2 px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs text-gray-700"
+                          >
+                            Copy
+                          </button>
+                        </div>
                       </div>
                       <div className="flex flex-col gap-2 ml-4">
                         <Button
@@ -653,8 +673,29 @@ const VerificationPage = () => {
                 )}
 
                 <div className="mt-3 pt-3 border-t border-gray-200">
-                  <div className="text-xs text-gray-400 font-mono">
-                    Request ID: {String(v.requestId).slice(0, 16)}...
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-xs text-gray-400 font-mono break-words">
+                      Request ID:
+                      <span className="ml-2 text-xs text-gray-700 break-words">
+                        {String(v.requestId)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(String(v.requestId));
+                            toast.success('Request ID copied to clipboard');
+                          } catch (e) {
+                            console.error('copy failed', e);
+                            toast.error('Failed to copy');
+                          }
+                        }}
+                        className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs text-gray-700"
+                      >
+                        Copy
+                      </button>
+                    </div>
                   </div>
                 </div>
               </Card>
