@@ -47,6 +47,7 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         uint256 ethAmount,
         uint256 authAmount
     );
+    event AuthSold(address indexed seller, uint256 authAmount, uint256 ethAmount);
     event ETHWithdrawn(address indexed recipient, uint256 amount);
 
     modifier updateReward(address account) {
@@ -263,6 +264,27 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         _transfer(address(this), msg.sender, authAmount);
 
         emit AuthPurchased(msg.sender, msg.value, authAmount);
+    }
+
+    /// @notice Sell AUTH tokens back to the contract for ETH at the fixed rate (1 ETH = AUTH_PER_ETH)
+    /// @dev User's AUTH tokens are transferred into the contract and the contract pays ETH if it has enough balance
+    function sellAuthForETH(uint256 authAmount) external nonReentrant whenNotPaused {
+        require(authAmount > 0, "AUTH: zero amount");
+        // Ensure user's totalAuth tracking and actual balance are sufficient
+        require(balanceOf(msg.sender) >= authAmount, "AUTH: insufficient balance");
+
+        // Transfer AUTH from seller into the contract
+        _transfer(msg.sender, address(this), authAmount);
+
+        // Compute ETH amount in wei: ethAmount = authAmount / AUTH_PER_ETH (scaled)
+        uint256 ethAmount = (authAmount * 1 ether) / AUTH_PER_ETH;
+        require(ethAmount > 0, "ETH amount too small");
+        require(address(this).balance >= ethAmount, "Insufficient ETH in contract");
+
+        (bool success, ) = payable(msg.sender).call{value: ethAmount}("");
+        require(success, "ETH transfer failed");
+
+        emit AuthSold(msg.sender, authAmount, ethAmount);
     }
 
     /// @notice Admin can withdraw collected ETH

@@ -22,6 +22,7 @@ import DistributionChart from "./DistributionChart";
 import MyNFTsSection from "./MyNFTsSection";
 import { ButtonVariants } from "../../types";
 import BuyAuthWithETH from "../Auth/BuyAuthWithETH";
+import SellAuthForETH from "../Auth/SellAuthForETH";
 
 const Dashboard = () => {
   const { isConnected, account, balance } = useWallet();
@@ -192,7 +193,10 @@ const Dashboard = () => {
 
       {/* Buy AUTH Section */}
       <div className="mb-8">
-        <BuyAuthWithETH />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <BuyAuthWithETH />
+          <SellAuthForETH />
+        </div>
       </div>
 
       {/* Stats Grid */}
