@@ -98,16 +98,31 @@ const ProductJourneyPage = () => {
         }));
         setTransferHistory(formattedHistory);
 
-        // Extract successful verifications from history (entries with "Verification Node" location)
-        const successfulVerifications = formattedHistory
+        // Extract verification events from history (entries with "Verification Node" location)
+        // Note: ProductRegistry.recordVerification toggles the product.isVerified boolean and
+        // always writes a TransferEvent with location "Verification Node". To determine whether
+        // each verification event represents the product becoming verified or unverified (e.g.,
+        // dispute flips), we iterate the verification events in chronological order and toggle
+        // a local state. This reconstructs per-event result even when the registry only stores
+        // the verification hash.
+        const verificationTransfers = formattedHistory
           .filter((transfer) => transfer.location === "Verification Node")
-          .map((transfer, idx) => ({
+          .sort((a, b) => a.timestamp - b.timestamp);
+
+        // Start with an assumed baseline of not-verified. We'll flip on each verification record.
+        let runningIsVerified = false;
+        const reconstructedVerifications = verificationTransfers.map((transfer) => {
+          const prev = runningIsVerified;
+          runningIsVerified = !runningIsVerified; // recordVerification flips the state
+          return {
             timestamp: transfer.timestamp,
             verifier: transfer.from,
-            result: "Authenticity Verified",
-            status: "success",
-            fee: "0.01", // Default fee, would need to fetch from VerificationManager
-          }));
+            // If runningIsVerified is true after the flip, this event VERIFIED the product.
+            result: runningIsVerified ? "Authenticity Verified" : "Verification Removed",
+            status: runningIsVerified ? "verified" : "unverified",
+            fee: "0.01",
+          };
+        });
 
         // Load failed verifications from VerificationManager
         let failedVerifications = [];
@@ -179,11 +194,12 @@ const ProductJourneyPage = () => {
           );
         }
 
-        // Combine and sort all verifications by timestamp
-        const allVerifications = [
-          ...successfulVerifications,
-          ...failedVerifications,
-        ].sort((a, b) => a.timestamp - b.timestamp);
+        // Combine and sort all verifications by timestamp. We include the reconstructed
+        // verification events (which may represent toggles) and any failed verification
+        // entries pulled from the VerificationManager events.
+        const allVerifications = [...reconstructedVerifications, ...failedVerifications].sort(
+          (a, b) => a.timestamp - b.timestamp
+        );
 
         setVerifications(allVerifications);
       } catch (err) {

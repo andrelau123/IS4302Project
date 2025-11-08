@@ -117,26 +117,28 @@ const ProductJourneyTimeline = ({
       icon: <AiOutlineEnvironment size={20} />,
       color: "blue",
     })),
-    ...verifications.map((verification, idx) => ({
-      type: "verification",
-      timestamp: verification.timestamp || Date.now(),
-      title:
-        verification.status === "failed"
+    ...verifications.map((verification, idx) => {
+      // verification.status may be 'failed', 'verified', or 'unverified' (toggled off)
+      const isFailed = verification.status === "failed";
+      const isUnverified = verification.status === "unverified";
+      const isVerified = !isFailed && !isUnverified;
+      return {
+        type: "verification",
+        timestamp: verification.timestamp || Date.now(),
+        title: isFailed
           ? "Verification Failed"
+          : isUnverified
+          ? "Verification Removed"
           : "Product Verified",
-      description:
-        verification.result || "Authenticity confirmed by verification node",
-      actor: verification.verifier || "Verification Node",
-      fee: verification.fee,
-      status: verification.status === "failed" ? "failed" : "verified",
-      icon:
-        verification.status === "failed" ? (
-          <MdWarning size={20} />
-        ) : (
-          <MdVerified size={20} />
-        ),
-      color: verification.status === "failed" ? "red" : "green",
-    })),
+        description:
+          verification.result || "Authenticity confirmed by verification node",
+        actor: verification.verifier || "Verification Node",
+        fee: verification.fee,
+        status: isFailed ? "failed" : isUnverified ? "unverified" : "verified",
+        icon: isFailed ? <MdWarning size={20} /> : <MdVerified size={20} />,
+        color: isFailed ? "red" : isUnverified ? "red" : "green",
+      };
+    }),
     ...disputes.map((dispute, idx) => {
       // Dispute status: 0 = Open, 1 = Resolved (in favor), 2 = Resolved (not in favor), 3 = Rejected
       const getDisputeStatus = () => {
@@ -278,6 +280,11 @@ const ProductJourneyTimeline = ({
                           FAILED
                         </span>
                       )}
+                      {event.status === "unverified" && (
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 border border-red-300">
+                          UNVERIFIED
+                        </span>
+                      )}
                       {event.status === "verified" && (
                         <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-300">
                           VERIFIED
@@ -390,19 +397,21 @@ const ProductJourneyTimeline = ({
                   {event.type === "verification" && (
                     <div
                       className={`mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
-                        event.status === "failed"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-green-100 text-green-800"
+                          (event.status === "failed" || event.status === "unverified")
+                            ? "bg-red-100 text-red-800"
+                            : "bg-green-100 text-green-800"
                       }`}
                     >
-                      {event.status === "failed" ? (
-                        <MdWarning />
-                      ) : (
-                        <MdVerified />
-                      )}
-                      {event.status === "failed"
-                        ? "Verification Failed"
-                        : "Verified Authentic"}
+                        {event.status === "failed" || event.status === "unverified" ? (
+                          <MdWarning />
+                        ) : (
+                          <MdVerified />
+                        )}
+                        {event.status === "failed"
+                          ? "Verification Failed"
+                          : event.status === "unverified"
+                          ? "Verification Removed"
+                          : "Verified Authentic"}
                     </div>
                   )}
 
