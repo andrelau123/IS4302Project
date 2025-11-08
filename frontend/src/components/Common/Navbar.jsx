@@ -35,6 +35,11 @@ const Navbar = () => {
       label: "Dashboard",
       icon: <AiOutlineBarChart size={20} />,
     },
+      {
+        path: "/retailers",
+        label: "Retailers",
+        icon: <AiOutlineShop size={20} />,
+      },
     {
       path: "/products",
       label: "Products",
