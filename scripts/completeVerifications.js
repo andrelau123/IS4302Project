@@ -161,6 +161,57 @@ async function main() {
           .completeVerification(requestId, isVerified, evidenceURI)
       ).wait();
 
+      // Attempt to update RetailerRegistry reputation (optional, requires VERIFICATION_MANAGER_ROLE)
+      try {
+        const rrAddress = envContent
+          .match(/REACT_APP_RETAILER_REGISTRY_ADDRESS=(.+)/)?.[1]
+          ?.trim();
+        if (rrAddress) {
+          const RetailerRegistry = await hre.ethers.getContractFactory(
+            "RetailerRegistry"
+          );
+          const rr = RetailerRegistry.attach(rrAddress);
+
+          try {
+            // Determine the retailer to update: it should be the current owner of the product
+            let retailerAddr = request.assignedVerifier;
+            try {
+              const product = await pr.getProduct(request.productId);
+              if (product && product.currentOwner) {
+                retailerAddr = product.currentOwner;
+              }
+            } catch (prodErr) {
+              console.warn('   [REPUTATION] Could not fetch product owner, falling back to assignedVerifier:', prodErr.message || prodErr);
+            }
+
+            console.log(`   [REPUTATION] Attempting to update reputation for retailer: ${retailerAddr}`);
+
+            // Ensure the admin has VERIFICATION_MANAGER_ROLE so this script can call processVerificationResult.
+            try {
+              const VERIF_ROLE = await rr.VERIFICATION_MANAGER_ROLE();
+              const hasAdminRole = await rr.hasRole(VERIF_ROLE, admin.address);
+              if (!hasAdminRole) {
+                console.log('   [REPUTATION] Admin missing VERIFICATION_MANAGER_ROLE - granting it now');
+                await (await rr.connect(admin).grantRole(VERIF_ROLE, admin.address)).wait();
+                console.log('   [REPUTATION] Granted VERIFICATION_MANAGER_ROLE to admin');
+              }
+            } catch (grantErr) {
+              console.warn('   [REPUTATION] Could not ensure VERIFICATION_MANAGER_ROLE for admin:', grantErr.message || grantErr);
+            }
+
+            const tx = await rr
+              .connect(admin)
+              .processVerificationResult(requestId, request.productId, retailerAddr, isVerified);
+            await tx.wait();
+            console.log('   [REPUTATION] RetailerRegistry.processVerificationResult called');
+          } catch (rrErr) {
+            console.warn('   [REPUTATION] Could not call processVerificationResult:', rrErr.message || rrErr);
+          }
+        }
+      } catch (e) {
+        console.warn('   [REPUTATION] RetailerRegistry lookup failed:', e.message || e);
+      }
+
       // Get balances after
       const verifierBalanceAfter = await auth.balanceOf(verifierAddress);
       const feeReceived = verifierBalanceAfter - verifierBalanceBefore;
