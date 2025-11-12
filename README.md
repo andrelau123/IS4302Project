@@ -72,7 +72,7 @@ Blockchain-based product authentication and supply chain tracking system combati
 4. If disputed → Multi-verifier voting, stake slashing on false claims
 5. Dispute successful → `isVerified` flipped (reverses verification)
 
-### NFT Minting & Trading (Optional)
+### NFT Minting & Trading
 
 1. Current owner mints NFT → ERC-721 token linked to productId
 2. List on marketplace → Set price in AUTH tokens
@@ -124,7 +124,6 @@ contracts/          # 10 Solidity smart contracts
 frontend/           # React web application
 test/              # Comprehensive test suites
 scripts/           # Deployment and demo scripts
-docs/              # Contract documentation
 ```
 
 ## Key Features by Role
@@ -140,10 +139,6 @@ docs/              # Contract documentation
 **Security:** OpenZeppelin contracts, role-based access, reentrancy guards, pausable  
 **Testing:** Comprehensive test coverage with integration tests  
 **Gas Costs:** ~180k (register) | ~200k (verify) | ~150k (transfer) | ~227k (mint NFT)
-
-## Documentation
-
-📚 [Full Contract Docs](./docs/) | [Roles & Flows](./docs/ROLES_AND_FLOWS.md)
 
 ## Technology Stack
 
