@@ -4,11 +4,13 @@ pragma solidity ^0.8.20;
 import "./RetailerRegistry.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuard
+} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-/// @notice Core registry for authentic products with full lifecycle and verification tracking.
+/// Core registry for authentic products with full lifecycle and verification tracking.
 contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
     bytes32 public constant MANUFACTURER_ROLE = keccak256("MANUFACTURER_ROLE");
     bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
@@ -160,7 +162,7 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         }
     }
 
-    /// @notice Allows the current owner (retailer) to confirm receipt of product
+    /// Confirm receipt of product at destination
     function confirmReceipt(
         bytes32 productId
     ) external nonReentrant whenNotPaused {
@@ -197,7 +199,7 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         }
     }
 
-    /// @notice Mark a product as sold to final customer
+    /// Mark a product as sold to final customer
     function markAsSold(
         bytes32 productId,
         address customer
@@ -236,7 +238,7 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         emit ProductStatusChanged(productId, ProductStatus.Sold);
     }
 
-    /// @notice Mark a product as disputed (called by DisputeResolution contract)
+    /// Mark a product as disputed (called by DisputeResolution contract)
     function markAsDisputed(
         bytes32 productId
     ) external onlyRole(VERIFIER_ROLE) whenNotPaused {
@@ -249,7 +251,7 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         emit ProductStatusChanged(productId, ProductStatus.Disputed);
     }
 
-    /// @notice Clear disputed status and restore to appropriate status
+    /// Clear disputed status and restore to appropriate status
     function clearDisputed(
         bytes32 productId
     ) external onlyRole(VERIFIER_ROLE) whenNotPaused {
@@ -293,7 +295,7 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
     }
 
     // verification Hooks
-    /// @notice Called by VerificationManager after successful authenticity check.
+    /// Called by VerificationManager after successful authenticity check.
     /// Also used by DisputeResolution to flip verification status.
     function recordVerification(
         bytes32 productId,
@@ -365,12 +367,12 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         _unpause();
     }
 
-    /// @notice Check if a product is registered
+    /// Check if a product is registered
     function isRegistered(bytes32 productId) external view returns (bool) {
         return products[productId].exists;
     }
 
-    /// @notice Update product status (for tests and manufacturer use)
+    /// Update product status (for tests and manufacturer use)
     function updateStatus(
         bytes32 productId,
         ProductStatus newStatus
@@ -388,7 +390,7 @@ contract ProductRegistry is AccessControl, ReentrancyGuard, Pausable {
         emit ProductStatusChanged(productId, newStatus);
     }
 
-    /// @notice Update product metadata (manufacturer only)
+    /// Update product metadata (manufacturer only)
     function updateMetadata(
         bytes32 productId,
         string calldata newMetadataURI

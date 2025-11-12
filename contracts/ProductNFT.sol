@@ -5,16 +5,13 @@ import "./ProductRegistry.sol";
 import "./RetailerRegistry.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuard
+} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-/**
- * @title ProductNFT
- * @notice ERC-721 NFT for premium authenticated products with transfer restrictions
- * @dev Implements transfer restrictions to maintain supply chain authenticity
- *      Only authorized retailers or verified addresses can receive NFTs
- */
+// ERC-721 NFT for authenticated products with transfer restrictions
 contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant TRANSFER_VALIDATOR_ROLE =
@@ -81,7 +78,7 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         royaltyReceiver = msg.sender;
     }
 
-    // ==================== Minting Functions ====================
+    // Minting functions
 
     function mintProductNFT(
         bytes32 productId,
@@ -126,12 +123,7 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         return tokenId;
     }
 
-    // ==================== Transfer Restriction Functions ====================
-
-    /**
-     * @notice Override _update to implement transfer restrictions
-     * @dev Checks if recipient is authorized before allowing transfer
-     */
+    // Override _update to implement transfer restrictions
     function _update(
         address to,
         uint256 tokenId,
@@ -156,11 +148,7 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         return super._update(to, tokenId, auth);
     }
 
-    /**
-     * @notice Check if an address is authorized to receive NFTs
-     * @param recipient Address to check
-     * @param tokenId Token being transferred
-     */
+    // Check if address is authorized to receive NFTs
     function _isAuthorizedRecipient(
         address recipient,
         uint256 tokenId
@@ -195,13 +183,7 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         return true;
     }
 
-    /**
-     * @notice Record a transfer with optional price information
-     * @param tokenId Token being transferred
-     * @param from Sender address
-     * @param to Recipient address
-     * @param price Sale price (0 if not a sale)
-     */
+    // Record transfer with optional price
     function _recordTransfer(
         uint256 tokenId,
         address from,
@@ -220,12 +202,7 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         emit TransferRecorded(tokenId, from, to, block.timestamp, price);
     }
 
-    /**
-     * @notice Record sale price for secondary market tracking
-     * @dev Can be called by marketplace integrations or transfer validators
-     * @param tokenId Token that was sold
-     * @param price Sale price in wei
-     */
+    // Record sale price for secondary market tracking
     function recordSalePrice(
         uint256 tokenId,
         uint256 price
@@ -240,12 +217,9 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         }
     }
 
-    // ==================== Admin Functions ====================
+    // Admin functions
 
-    /**
-     * @notice Enable or disable transfer restrictions
-     * @param enabled Whether restrictions should be enabled
-     */
+    // Enable or disable transfer restrictions
     function setTransferRestrictions(
         bool enabled
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -253,10 +227,7 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         emit TransferRestrictionUpdated(enabled);
     }
 
-    /**
-     * @notice Enable or disable retailer authorization requirement
-     * @param required Whether retailer authorization is required
-     */
+    // Enable or disable retailer authorization requirement
     function setRetailerAuthorizationRequirement(
         bool required
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -264,11 +235,7 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         emit RetailerAuthorizationRequirementUpdated(required);
     }
 
-    /**
-     * @notice Whitelist or remove an address from whitelist
-     * @param account Address to whitelist/remove
-     * @param whitelisted Whether to whitelist or remove
-     */
+    // Whitelist or remove address
     function setWhitelistedAddress(
         address account,
         bool whitelisted
@@ -278,11 +245,8 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         emit AddressWhitelisted(account, whitelisted);
     }
 
-    /**
-     * @notice Batch whitelist multiple addresses
-     * @param accounts Array of addresses to whitelist
-     * @param whitelisted Whether to whitelist or remove all
-     */
+    // Batch whitelist multiple addresses
+
     function batchSetWhitelistedAddresses(
         address[] calldata accounts,
         bool whitelisted
@@ -294,11 +258,8 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         }
     }
 
-    /**
-     * @notice Update royalty information
-     * @param receiver Address to receive royalties
-     * @param percentage Royalty percentage in basis points (e.g., 250 = 2.5%)
-     */
+    // Update royalty information
+
     function setRoyaltyInfo(
         address receiver,
         uint256 percentage
@@ -320,7 +281,7 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         _unpause();
     }
 
-    // ==================== View Functions ====================
+    // View functions
 
     function tokenURI(
         uint256 tokenId
@@ -335,11 +296,7 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         return metadataURI;
     }
 
-    /**
-     * @notice Get full transfer history for a token
-     * @param tokenId Token to query
-     * @return Array of transfer records
-     */
+    // Get transfer history for token
     function getTransferHistory(
         uint256 tokenId
     ) external view returns (TransferRecord[] memory) {
@@ -347,21 +304,12 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         return transferHistory[tokenId];
     }
 
-    /**
-     * @notice Get the number of times a token has been transferred
-     * @param tokenId Token to query
-     * @return Number of transfers
-     */
+    // Get token transfer count
     function getTransferCount(uint256 tokenId) external view returns (uint256) {
         return transferHistory[tokenId].length;
     }
 
-    /**
-     * @notice Check if an address can receive a specific NFT
-     * @param recipient Address to check
-     * @param tokenId Token being checked
-     * @return Whether the recipient is authorized
-     */
+    // Check if address can receive NFT
     function canReceiveNFT(
         address recipient,
         uint256 tokenId
@@ -372,13 +320,8 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         return _isAuthorizedRecipient(recipient, tokenId);
     }
 
-    /**
-     * @notice Get royalty information for a token (EIP-2981)
-     * @param tokenId Token to query
-     * @param salePrice Sale price of the token
-     * @return receiver Address to receive royalties
-     * @return royaltyAmount Amount of royalty to pay
-     */
+    // Get royalty information for a token (EIP-2981)
+
     function royaltyInfo(
         uint256 tokenId,
         uint256 salePrice
@@ -388,21 +331,15 @@ contract ProductNFT is ERC721, AccessControl, Pausable, ReentrancyGuard {
         royaltyAmount = (salePrice * royaltyPercentage) / 10000;
     }
 
-    /**
-     * @notice Get the product ID associated with an NFT
-     * @param tokenId Token to query
-     * @return Product ID
-     */
+    // Get the product ID associated with an NFT
+
     function getProductId(uint256 tokenId) external view returns (bytes32) {
         require(_ownerOf(tokenId) != address(0), "Token does not exist");
         return nftToProductId[tokenId];
     }
 
-    /**
-     * @notice Check if a product has an associated NFT
-     * @param productId Product to check
-     * @return Whether NFT exists
-     */
+    // Check if a product has an associated NFT
+
     function hasNFT(bytes32 productId) external view returns (bool) {
         return productIdToNFT[productId] != 0;
     }

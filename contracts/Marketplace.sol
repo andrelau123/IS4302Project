@@ -6,8 +6,8 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title Marketplace
- * @notice Simple marketplace for buying and selling ProductNFTs with ETH
+ * Marketplace
+ * Simple marketplace for buying and selling ProductNFTs with ETH
  */
 contract Marketplace is ReentrancyGuard, Ownable {
     ProductNFT public productNFT;
@@ -39,9 +39,9 @@ contract Marketplace is ReentrancyGuard, Ownable {
     }
     
     /**
-     * @notice List an NFT for sale
-     * @param tokenId The token ID to list
-     * @param price The price in wei
+     * List an NFT for sale
+     * tokenId The token ID to list
+     * price The price in wei
      */
     function createListing(uint256 tokenId, uint256 price) external {
         require(productNFT.ownerOf(tokenId) == msg.sender, "Not token owner");
@@ -62,8 +62,8 @@ contract Marketplace is ReentrancyGuard, Ownable {
     }
     
     /**
-     * @notice Purchase an NFT
-     * @param tokenId The token ID to purchase
+     * Purchase an NFT
+     * tokenId The token ID to purchase
      */
     function purchaseNFT(uint256 tokenId) external payable nonReentrant {
         Listing storage listing = listings[tokenId];
@@ -99,8 +99,8 @@ contract Marketplace is ReentrancyGuard, Ownable {
     }
     
     /**
-     * @notice Cancel a listing
-     * @param tokenId The token ID to cancel
+     * Cancel a listing
+     * tokenId The token ID to cancel
      */
     function cancelListing(uint256 tokenId) external {
         Listing storage listing = listings[tokenId];
@@ -116,9 +116,9 @@ contract Marketplace is ReentrancyGuard, Ownable {
     }
     
     /**
-     * @notice Update listing price
-     * @param tokenId The token ID
-     * @param newPrice The new price
+     * Update listing price
+     * tokenId The token ID
+     * newPrice The new price
      */
     function updatePrice(uint256 tokenId, uint256 newPrice) external {
         Listing storage listing = listings[tokenId];
@@ -133,8 +133,8 @@ contract Marketplace is ReentrancyGuard, Ownable {
     }
     
     /**
-     * @notice Update platform fee
-     * @param newFeeBps New fee in basis points
+     * Update platform fee
+     * newFeeBps New fee in basis points
      */
     function updatePlatformFee(uint256 newFeeBps) external onlyOwner {
         require(newFeeBps <= 1000, "Fee too high"); // Max 10%
@@ -142,8 +142,8 @@ contract Marketplace is ReentrancyGuard, Ownable {
     }
     
     /**
-     * @notice Update fee recipient
-     * @param newRecipient New fee recipient address
+     * Update fee recipient
+     * newRecipient New fee recipient address
      */
     function updateFeeRecipient(address newRecipient) external onlyOwner {
         require(newRecipient != address(0), "Invalid address");
@@ -151,16 +151,16 @@ contract Marketplace is ReentrancyGuard, Ownable {
     }
     
     /**
-     * @notice Get listing details
-     * @param tokenId The token ID
+     * Get listing details
+     * tokenId The token ID
      */
     function getListing(uint256 tokenId) external view returns (Listing memory) {
         return listings[tokenId];
     }
     
     /**
-     * @notice Check if token is listed
-     * @param tokenId The token ID
+     * Check if token is listed
+     * tokenId The token ID
      */
     function isListed(uint256 tokenId) external view returns (bool) {
         return listings[tokenId].active;

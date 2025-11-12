@@ -3,7 +3,9 @@ pragma solidity ^0.8.20;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuard
+} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
@@ -33,10 +35,10 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
 
     mapping(address => StakeInfo) public stakes;
 
-    /// @dev Annual percentage yield (integer percent). Example: 8 means 8% APY.
+    // Annual percentage yield (8 = 8% APY)
     uint256 public rewardRate = 8;
 
-    /// @dev Minimum lock time for any new/updated stake.
+    // Minimum lock time for stakes
     uint256 public lockPeriod = 7 days;
 
     event Staked(address indexed user, uint256 amount, uint256 unlockAt);
@@ -47,7 +49,11 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         uint256 ethAmount,
         uint256 authAmount
     );
-    event AuthSold(address indexed seller, uint256 authAmount, uint256 ethAmount);
+    event AuthSold(
+        address indexed seller,
+        uint256 authAmount,
+        uint256 ethAmount
+    );
     event ETHWithdrawn(address indexed recipient, uint256 amount);
 
     modifier updateReward(address account) {
@@ -98,7 +104,7 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
     }
 
     //External: Staking
-    /// @notice Stake your AUTH to earn rewards.
+    /// Stake your AUTH to earn rewards.
     function stake(
         uint256 amount
     ) external whenNotPaused nonReentrant updateReward(msg.sender) {
@@ -118,7 +124,7 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         emit Staked(msg.sender, amount, s.unlockAt);
     }
 
-    /// @notice Unstake principal (after lock) and auto-claim rewards.
+    /// Unstake principal (after lock) and auto-claim rewards.
     function unstake(
         uint256 amount
     ) external whenNotPaused nonReentrant updateReward(msg.sender) {
@@ -144,7 +150,7 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         }
     }
 
-    /// @notice Unstake all principal and claim rewards (for tests)
+    /// Unstake all principal and claim rewards (for tests)
     function unstake()
         external
         whenNotPaused
@@ -173,7 +179,7 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         }
     }
 
-    /// @notice Claim any pending rewards without changing stake.
+    /// Claim any pending rewards without changing stake.
     function claimRewards()
         external
         whenNotPaused
@@ -191,12 +197,12 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         }
     }
 
-    /// @notice Pending reward as of now, in AUTH.
+    /// Pending reward as of now, in AUTH.
     function pendingReward(address user) external view returns (uint256) {
         return earned(user);
     }
 
-    /// @notice Available reward pool (excludes staked principal).
+    /// Available reward pool (excludes staked principal).
     function availableRewardPool() public view returns (uint256) {
         uint256 bal = balanceOf(address(this));
         if (bal <= totalStaked) return 0;
@@ -217,7 +223,7 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         return amt;
     }
 
-    /// @notice Update APY percentage (max capped for safety).
+    /// Update APY percentage (max capped for safety).
     function setRewardRate(
         uint256 newRatePercent
     ) external onlyRole(DEFAULT_ADMIN_ROLE) updateReward(address(0)) {
@@ -225,7 +231,7 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         rewardRate = newRatePercent;
     }
 
-    /// @notice Update minimum lock period for new/updated stakes.
+    /// Update minimum lock period for new/updated stakes.
     function setLockPeriod(
         uint256 newLockPeriod
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -233,7 +239,7 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         lockPeriod = newLockPeriod;
     }
 
-    /// @notice Transfer additional rewards into the pool from caller's balance.
+    /// Transfer additional rewards into the pool from caller's balance.
     function topUpRewards(uint256 amount) external onlyRole(MINTER_ROLE) {
         require(amount > 0, "AUTH: zero top-up");
         require(balanceOf(msg.sender) >= amount, "AUTH: insufficient balance");
@@ -248,8 +254,7 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         _unpause();
     }
 
-    /// @notice Buy AUTH tokens with ETH at fixed rate (1 ETH = 10,000 AUTH)
-    /// @dev Requires contract to have sufficient AUTH balance (from rewards pool)
+    // Buy AUTH with ETH (1 ETH = 10,000 AUTH)
     function buyAuthWithETH() external payable nonReentrant whenNotPaused {
         require(msg.value > 0, "Must send ETH");
 
@@ -266,12 +271,16 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         emit AuthPurchased(msg.sender, msg.value, authAmount);
     }
 
-    /// @notice Sell AUTH tokens back to the contract for ETH at the fixed rate (1 ETH = AUTH_PER_ETH)
-    /// @dev User's AUTH tokens are transferred into the contract and the contract pays ETH if it has enough balance
-    function sellAuthForETH(uint256 authAmount) external nonReentrant whenNotPaused {
+    // Sell AUTH for ETH (1 ETH = 10,000 AUTH)
+    function sellAuthForETH(
+        uint256 authAmount
+    ) external nonReentrant whenNotPaused {
         require(authAmount > 0, "AUTH: zero amount");
         // Ensure user's totalAuth tracking and actual balance are sufficient
-        require(balanceOf(msg.sender) >= authAmount, "AUTH: insufficient balance");
+        require(
+            balanceOf(msg.sender) >= authAmount,
+            "AUTH: insufficient balance"
+        );
 
         // Transfer AUTH from seller into the contract
         _transfer(msg.sender, address(this), authAmount);
@@ -279,7 +288,10 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         // Compute ETH amount in wei: ethAmount = authAmount / AUTH_PER_ETH (scaled)
         uint256 ethAmount = (authAmount * 1 ether) / AUTH_PER_ETH;
         require(ethAmount > 0, "ETH amount too small");
-        require(address(this).balance >= ethAmount, "Insufficient ETH in contract");
+        require(
+            address(this).balance >= ethAmount,
+            "Insufficient ETH in contract"
+        );
 
         (bool success, ) = payable(msg.sender).call{value: ethAmount}("");
         require(success, "ETH transfer failed");
@@ -287,7 +299,7 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         emit AuthSold(msg.sender, authAmount, ethAmount);
     }
 
-    /// @notice Admin can withdraw collected ETH
+    /// Admin can withdraw collected ETH
     function withdrawETH(
         address payable recipient,
         uint256 amount
@@ -307,7 +319,7 @@ contract AuthToken is ERC20, AccessControl, Pausable, ReentrancyGuard {
         _mint(to, amount);
     }
 
-    /// @notice Override _update to enforce pausable transfers
+    /// Override _update to enforce pausable transfers
     function _update(
         address from,
         address to,

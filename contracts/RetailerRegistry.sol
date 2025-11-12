@@ -154,11 +154,11 @@ contract RetailerRegistry is AccessControl, Pausable {
         emit RetailerDeauthorized(brand, retailer);
     }
 
-    /// @notice Process verification result (called by VerificationManager only)
-    /// @param verificationId Unique ID from VerificationManager
-    /// @param productId Product being verified
-    /// @param retailer Retailer being evaluated
-    /// @param success Whether verification passed
+    /// Process verification result (called by VerificationManager only)
+    /// verificationId Unique ID from VerificationManager
+    /// productId Product being verified
+    /// retailer Retailer being evaluated
+    /// success Whether verification passed
     function processVerificationResult(
         bytes32 verificationId,
         bytes32 productId,
@@ -226,9 +226,9 @@ contract RetailerRegistry is AccessControl, Pausable {
         emit ReputationUpdated(retailer, newScore, "Verification result");
     }
 
-    /// @notice Record product handling (called by ProductRegistry only)
-    /// @param productId Unique product identifier
-    /// @param retailer Retailer handling the product
+    /// Record product handling (called by ProductRegistry only)
+    /// productId Unique product identifier
+    /// retailer Retailer handling the product
     function recordProductHandling(
         bytes32 productId,
         address retailer
@@ -251,7 +251,7 @@ contract RetailerRegistry is AccessControl, Pausable {
         emit ReputationUpdated(retailer, newScore, "Product handled");
     }
 
-    /// @notice Record retailer's response time for a request
+    /// Record retailer's response time for a request
     function recordResponseTime(
         address retailer,
         uint256 responseTime
@@ -277,7 +277,7 @@ contract RetailerRegistry is AccessControl, Pausable {
         emit ReputationUpdated(retailer, newScore, "Response time updated");
     }
 
-    /// @notice Record dispute outcome for a retailer
+    /// Record dispute outcome for a retailer
     function recordDispute(
         address retailer,
         bool retailerWon
@@ -299,7 +299,7 @@ contract RetailerRegistry is AccessControl, Pausable {
         emit ReputationUpdated(retailer, newScore, "Dispute recorded");
     }
 
-    /// @notice Update retailer's lifetime revenue contribution
+    /// Update retailer's lifetime revenue contribution
     function recordRevenue(
         address retailer,
         uint256 revenueAmount
@@ -316,8 +316,8 @@ contract RetailerRegistry is AccessControl, Pausable {
         emit ReputationUpdated(retailer, newScore, "Revenue recorded");
     }
 
-    /// @notice DEPRECATED: Old function kept for backwards compatibility
-    /// @dev Now requires product link or will revert
+    /// DEPRECATED: Old function kept for backwards compatibility
+    /// Now requires product link or will revert
     function updateReputation(
         address retailer,
         bool success
@@ -328,7 +328,7 @@ contract RetailerRegistry is AccessControl, Pausable {
         success; // Silence unused variable warnings
     }
 
-    /// @notice Calculate composite reputation score
+    /// Calculate composite reputation score
     function _calculateCompositeReputation(
         address retailer
     ) internal view returns (uint256) {

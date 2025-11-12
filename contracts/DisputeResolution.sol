@@ -90,7 +90,7 @@ contract DisputeResolution is AccessControl, ReentrancyGuard, Pausable {
         verificationManager = VerificationManager(_verificationManager);
     }
 
-    /// @notice Set the VerificationManager address (for checking verifier status)
+    /// Set the VerificationManager address (for checking verifier status)
     function setVerificationManager(
         address _verificationManager
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -137,7 +137,7 @@ contract DisputeResolution is AccessControl, ReentrancyGuard, Pausable {
         emit DisputeCreated(disputeId, productId, msg.sender);
     }
 
-    /// @notice Vote on a dispute (only active verifiers can vote)
+    /// Vote on a dispute (only active verifiers can vote)
     function voteOnDispute(
         bytes32 disputeId,
         bool inFavor
@@ -237,7 +237,7 @@ contract DisputeResolution is AccessControl, ReentrancyGuard, Pausable {
         emit DisputeResolved(disputeId, d.inFavor, refund);
     }
 
-    /// @notice Anyone can mark a dispute expired after voting window passes.
+    /// Anyone can mark a dispute expired after voting window passes.
     function markExpired(bytes32 disputeId) external {
         Dispute storage d = disputes[disputeId];
         require(

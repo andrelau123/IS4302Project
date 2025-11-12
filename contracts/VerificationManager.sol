@@ -5,11 +5,13 @@ import "./AuthToken.sol";
 import "./ProductRegistry.sol";
 import "./FeeDistributor.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuard
+} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-/// @notice Handles product verification requests, verifier staking, and fee distribution.
+/// Handles product verification requests, verifier staking, and fee distribution.
 contract VerificationManager is AccessControl, ReentrancyGuard, Pausable {
     //roles
     bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
@@ -142,7 +144,7 @@ contract VerificationManager is AccessControl, ReentrancyGuard, Pausable {
         emit VerificationRequested(requestId, productId, msg.sender, fee);
     }
 
-    /// @notice Assigns a verifier to a pending request (could be automated later via off-chain logic).
+    /// Assign verifier to pending request
     function assignVerifier(
         bytes32 requestId,
         address verifier
@@ -162,7 +164,7 @@ contract VerificationManager is AccessControl, ReentrancyGuard, Pausable {
         emit VerificationAssigned(requestId, verifier);
     }
 
-    /// @notice Called by a verifier to finalize a request.
+    /// Called by a verifier to finalize a request.
     function completeVerification(
         bytes32 requestId,
         bool result,
@@ -216,7 +218,7 @@ contract VerificationManager is AccessControl, ReentrancyGuard, Pausable {
         return fee;
     }
 
-    /// @notice Internal function to slash verifier stake
+    /// Internal function to slash verifier stake
     function slashVerifier(address verifier, uint256 penalty) internal {
         Verifier storage v = verifiers[verifier];
         require(v.stakedAmount >= penalty, "Insufficient stake");
@@ -226,7 +228,7 @@ contract VerificationManager is AccessControl, ReentrancyGuard, Pausable {
         emit VerifierSlashed(verifier, penalty);
     }
 
-    /// @notice Admin can manually slash verifier stake for misconduct (linked to DisputeResolution outcomes).
+    /// Manually slash verifier stake for misconduct
     function adminSlashVerifier(
         address verifier,
         uint256 penalty
@@ -234,7 +236,7 @@ contract VerificationManager is AccessControl, ReentrancyGuard, Pausable {
         slashVerifier(verifier, penalty);
     }
 
-    /// @notice DisputeResolution contract can slash verifiers for proven bad verifications
+    /// Slash verifier for bad verifications (called by DisputeResolution)
     function slashVerifierFromDispute(
         address verifier,
         uint256 penalty
@@ -242,7 +244,7 @@ contract VerificationManager is AccessControl, ReentrancyGuard, Pausable {
         slashVerifier(verifier, penalty);
     }
 
-    /// @notice Handle timeout for unresponded verification requests
+    /// Handle timeout for unresponded verification requests
     function handleTimeout(bytes32 requestId) external {
         VerificationRequest storage request = requests[requestId];
         require(!request.completed, "Already completed");
@@ -265,7 +267,7 @@ contract VerificationManager is AccessControl, ReentrancyGuard, Pausable {
         emit VerificationCompleted(requestId, false, request.assignedVerifier);
     }
 
-    /// @notice Set verification fee range
+    /// Set verification fee range
     function setVerificationFees(
         uint256 _minFee,
         uint256 _maxFee
@@ -275,14 +277,14 @@ contract VerificationManager is AccessControl, ReentrancyGuard, Pausable {
         maxVerificationFee = _maxFee;
     }
 
-    /// @notice Set minimum stake amount for verifiers
+    /// Set minimum stake amount for verifiers
     function setMinStakeAmount(
         uint256 _minStake
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         minStakeAmount = _minStake;
     }
 
-    /// @notice Set verification timeout period
+    /// Set verification timeout period
     function setVerificationTimeout(
         uint256 _timeout
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {

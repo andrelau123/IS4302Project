@@ -3,15 +3,17 @@ pragma solidity ^0.8.20;
 
 import "./AuthToken.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuard
+} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-/// @notice Token-weighted voting contract for protocol-level decisions in the AUTH ecosystem.
-/// @dev Voters must stake or hold AUTH tokens; each proposal runs for a fixed period.
+/// Token-weighted voting contract for protocol-level decisions in the AUTH ecosystem.
+/// Voters must stake or hold AUTH tokens; each proposal runs for a fixed period.
 contract GovernanceVoting is AccessControl, ReentrancyGuard {
-    // -------------------- Roles --------------------
+    // Roles
     bytes32 public constant PROPOSER_ROLE = keccak256("PROPOSER_ROLE");
 
-    // -------------------- Structs --------------------
+    // Structs
     struct Proposal {
         uint256 proposalId;
         string title;
@@ -26,7 +28,7 @@ contract GovernanceVoting is AccessControl, ReentrancyGuard {
         mapping(address => bool) hasVoted;
     }
 
-    // -------------------- State --------------------
+    // State variables
     AuthToken public immutable authToken;
     uint256 public constant MIN_PROPOSAL_TOKENS = 10_000 * 10 ** 18; // require min stake to propose
     uint256 public votingDuration = 3 days;
@@ -35,12 +37,20 @@ contract GovernanceVoting is AccessControl, ReentrancyGuard {
     uint256 public quorumPercent = 10; // 10% of total supply required
     uint256 public totalVotesCasted;
 
-    // -------------------- Events --------------------
-    event ProposalCreated(uint256 indexed id, address indexed proposer, string title);
-    event VoteCast(uint256 indexed id, address indexed voter, bool support, uint256 weight);
+    // Events
+    event ProposalCreated(
+        uint256 indexed id,
+        address indexed proposer,
+        string title
+    );
+    event VoteCast(
+        uint256 indexed id,
+        address indexed voter,
+        bool support,
+        uint256 weight
+    );
     event ProposalExecuted(uint256 indexed id, bool passed);
 
-    // -------------------- Constructor --------------------
     constructor(address _authToken, address admin) {
         require(_authToken != address(0), "Invalid token address");
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
@@ -48,7 +58,7 @@ contract GovernanceVoting is AccessControl, ReentrancyGuard {
         authToken = AuthToken(_authToken);
     }
 
-    /// @notice Create a new proposal.
+    /// Create a new proposal.
     function createProposal(
         string calldata title,
         string calldata description
@@ -71,7 +81,7 @@ contract GovernanceVoting is AccessControl, ReentrancyGuard {
         return proposalId;
     }
 
-    /// @notice Cast a vote on a proposal (weighted by AUTH balance).
+    /// Cast a vote on a proposal (weighted by AUTH balance).
     function vote(uint256 proposalId, bool support) external nonReentrant {
         Proposal storage p = proposals[proposalId];
         require(block.timestamp >= p.startTime, "Voting not started");
@@ -89,7 +99,7 @@ contract GovernanceVoting is AccessControl, ReentrancyGuard {
         emit VoteCast(proposalId, msg.sender, support, weight);
     }
 
-    /// @notice Execute proposal results after voting ends.
+    /// Execute proposal results after voting ends.
     function executeProposal(uint256 proposalId) external {
         Proposal storage p = proposals[proposalId];
         require(block.timestamp >= p.endTime, "Voting still open");
@@ -107,8 +117,10 @@ contract GovernanceVoting is AccessControl, ReentrancyGuard {
         emit ProposalExecuted(proposalId, p.passed);
     }
 
-    // -------------------- View Functions --------------------
-    function getProposal(uint256 id)
+    // View functions
+    function getProposal(
+        uint256 id
+    )
         external
         view
         returns (
@@ -140,26 +152,37 @@ contract GovernanceVoting is AccessControl, ReentrancyGuard {
     function getActiveProposals() external view returns (uint256[] memory ids) {
         uint256 count;
         for (uint256 i = 1; i <= proposalCounter; i++) {
-            if (block.timestamp < proposals[i].endTime && !proposals[i].executed) {
+            if (
+                block.timestamp < proposals[i].endTime && !proposals[i].executed
+            ) {
                 count++;
             }
         }
         ids = new uint256[](count);
         uint256 j;
         for (uint256 i = 1; i <= proposalCounter; i++) {
-            if (block.timestamp < proposals[i].endTime && !proposals[i].executed) {
+            if (
+                block.timestamp < proposals[i].endTime && !proposals[i].executed
+            ) {
                 ids[j++] = i;
             }
         }
     }
 
-    // -------------------- Admin Controls --------------------
-    function setVotingDuration(uint256 newDuration) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newDuration >= 1 days && newDuration <= 14 days, "Invalid duration");
+    // Admin functions
+    function setVotingDuration(
+        uint256 newDuration
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(
+            newDuration >= 1 days && newDuration <= 14 days,
+            "Invalid duration"
+        );
         votingDuration = newDuration;
     }
 
-    function setQuorumPercent(uint256 newQuorum) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setQuorumPercent(
+        uint256 newQuorum
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newQuorum >= 5 && newQuorum <= 50, "Out of range");
         quorumPercent = newQuorum;
     }
