@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [18.x]
+        node-version: [22.x]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,11 +23,31 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
-      - name: Install root dependencies
-        run: npm ci
+      - name: Install dependencies (lockfile-aware) and ensure Hardhat
+        run: |
+          set -e
+          echo "Checking for lockfile..."
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ] || [ -f yarn.lock ]; then
+            echo "Lockfile found — running npm ci"
+            npm ci
+          else
+            echo "No lockfile found — running npm install"
+            npm install
+          fi
+
+          # Ensure a local Hardhat installation exists; install as devDependency if missing
+          if [ ! -f node_modules/.bin/hardhat ]; then
+            echo "Local Hardhat not found — installing hardhat as devDependency"
+            npm install --save-dev hardhat@latest
+          else
+            echo "Local Hardhat found"
+          fi
+
+      - name: Compile contracts
+        run: npx hardhat compile
 
       - name: Run Hardhat tests
-        run: npx hardhat test --no-compile
+        run: npx hardhat test
 
       - name: Compile and re-run tests (fallback)
         if: failure()
