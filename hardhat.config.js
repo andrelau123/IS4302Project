@@ -6,6 +6,9 @@ module.exports = {
   solidity: {
     version: "0.8.20", // matches your contract pragma
     settings: {
+      // Enable the new Solidity IR pipeline when running coverage or when explicitly requested.
+      // Set COVERAGE=true (or USE_VIA_IR=true) in the environment to enable.
+      viaIR: process.env.COVERAGE === "true" || process.env.USE_VIA_IR === "true",
       optimizer: {
         enabled: true,
         runs: 200,
