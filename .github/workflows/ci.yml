@@ -17,37 +17,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
-      - name: Install dependencies (lockfile-aware) and ensure Hardhat
-        run: |
-          set -e
-          echo "Checking for lockfile..."
-          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ] || [ -f yarn.lock ]; then
-            echo "Lockfile found — running npm ci"
-            npm ci
-          else
-            echo "No lockfile found — running npm install"
-            npm install
-          fi
-
-          # Ensure a local Hardhat installation exists; install as devDependency if missing
-          if [ ! -f node_modules/.bin/hardhat ]; then
-            echo "Local Hardhat not found — installing hardhat as devDependency"
-            npm install --save-dev hardhat@latest
-          else
-            echo "Local Hardhat found"
-          fi
+      - name: Install dependencies 
+        run: npm install
 
       - name: Compile contracts
         run: npx hardhat compile
 
-      - name: Run Hardhat tests
+      - name: Run unit tests
         run: npx hardhat test
+
+      - name: Run integration tests
+        run: npx hardhat test test/Integration.test.js
 
       - name: Compile and re-run tests (fallback)
         if: failure()
