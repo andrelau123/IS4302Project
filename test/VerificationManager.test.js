@@ -48,6 +48,14 @@ describe("VerificationManager", function () {
     await productRegistry.grantRole(MANUFACTURER_ROLE, manufacturer.address);
     await retailerRegistry.grantRole(BRAND_MANAGER_ROLE, owner.address);
     await feeDistributor.grantRole(DISTRIBUTOR_ROLE, verificationManager.target);
+
+  // Ensure VerificationManager can record verifications in ProductRegistry
+  const PROD_VERIFIER_ROLE = await productRegistry.VERIFIER_ROLE();
+  await productRegistry.grantRole(PROD_VERIFIER_ROLE, verificationManager.target);
+
+  // Ensure VerificationManager can update retailer reputations
+  const RTR_VERIF_ROLE = await retailerRegistry.VERIFICATION_MANAGER_ROLE();
+  await retailerRegistry.grantRole(RTR_VERIF_ROLE, verificationManager.target);
     
     // Transfer tokens to test accounts
     const stakeAmount = ethers.parseEther("2000");

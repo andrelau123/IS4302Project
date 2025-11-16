@@ -83,10 +83,9 @@ describe("FeeDistributor", function () {
 
     it("Should distribute revenue correctly with default shares", async function () {
       const totalFee = ethers.parseEther("100");
-      
-      // Approve distributor to transfer fee from caller
-      await authToken.approve(feeDistributor.target, totalFee);
-      
+      // Ensure FeeDistributor has tokens to distribute
+      await authToken.transfer(feeDistributor.target, totalFee);
+
       await expect(feeDistributor.distributeRevenue(verifier1.address, brand1.address, totalFee))
         .to.emit(feeDistributor, "RevenueDistributed")
         .withArgs(verifier1.address, brand1.address, totalFee);
@@ -109,13 +108,12 @@ describe("FeeDistributor", function () {
     it("Should accumulate rewards for multiple distributions", async function () {
       const fee1 = ethers.parseEther("100");
       const fee2 = ethers.parseEther("50");
-      
-      // Approve total amount for both distributions
-      await authToken.approve(feeDistributor.target, fee1 + fee2);
-      
+      // Seed feeDistributor with enough tokens for both distributions
+      await authToken.transfer(feeDistributor.target, fee1 + fee2);
+
       // First distribution
       await feeDistributor.distributeRevenue(verifier1.address, brand1.address, fee1);
-      
+
       // Second distribution
       await feeDistributor.distributeRevenue(verifier1.address, brand1.address, fee2);
       
@@ -126,8 +124,9 @@ describe("FeeDistributor", function () {
 
     it("Should handle distributions to different stakeholders", async function () {
       const totalFee = ethers.parseEther("100");
-      await authToken.approve(feeDistributor.target, totalFee);
-      
+      // Seed the feeDistributor with funds
+      await authToken.transfer(feeDistributor.target, totalFee);
+
       await feeDistributor.distributeRevenue(verifier1.address, brand1.address, ethers.parseEther("60"));
       await feeDistributor.distributeRevenue(verifier2.address, brand2.address, ethers.parseEther("40"));
       
@@ -162,7 +161,8 @@ describe("FeeDistributor", function () {
       
       // Setup initial distribution
       const totalFee = ethers.parseEther("100");
-      await authToken.approve(feeDistributor.target, totalFee);
+      // Seed feeDistributor with tokens so distributeRevenue can succeed
+      await authToken.transfer(feeDistributor.target, totalFee);
       await feeDistributor.distributeRevenue(verifier1.address, brand1.address, totalFee);
     });
 
@@ -215,8 +215,9 @@ describe("FeeDistributor", function () {
       
       // New distribution
       const newFee = ethers.parseEther("50");
-      await authToken.approve(feeDistributor.target, newFee);
-      await feeDistributor.distributeRevenue(verifier1.address, brand1.address, newFee);
+  // Seed the feeDistributor contract with tokens for the new distribution
+  await authToken.transfer(feeDistributor.target, newFee);
+  await feeDistributor.distributeRevenue(verifier1.address, brand1.address, newFee);
       
       // Second claim
       const initialBalance = await authToken.balanceOf(verifier1.address);
@@ -235,9 +236,9 @@ describe("FeeDistributor", function () {
     beforeEach(async function () {
       await feeDistributor.grantRole(DISTRIBUTOR_ROLE, owner.address);
       
-      // Setup initial distribution
+      // Setup initial distribution (seed contract)
       const totalFee = ethers.parseEther("100");
-      await authToken.approve(feeDistributor.target, totalFee);
+      await authToken.transfer(feeDistributor.target, totalFee);
       await feeDistributor.distributeRevenue(verifier1.address, brand1.address, totalFee);
     });
 
@@ -278,7 +279,7 @@ describe("FeeDistributor", function () {
 
     it("Should return correct pending rewards", async function () {
       const totalFee = ethers.parseEther("100");
-      await authToken.approve(feeDistributor.target, totalFee);
+      await authToken.transfer(feeDistributor.target, totalFee);
       await feeDistributor.distributeRevenue(verifier1.address, brand1.address, totalFee);
       
       expect(await feeDistributor.getPendingRewards(verifier1.address)).to.equal(ethers.parseEther("40"));
@@ -288,7 +289,7 @@ describe("FeeDistributor", function () {
 
     it("Should return correct total earnings", async function () {
       const totalFee = ethers.parseEther("100");
-      await authToken.approve(feeDistributor.target, totalFee);
+      await authToken.transfer(feeDistributor.target, totalFee);
       await feeDistributor.distributeRevenue(verifier1.address, brand1.address, totalFee);
       
       // Before claiming, total earnings should be 0

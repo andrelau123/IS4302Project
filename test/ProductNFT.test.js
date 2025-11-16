@@ -89,7 +89,8 @@ describe("ProductNFT", function () {
 
   describe("Minting", function () {
     it("Should allow minter to mint NFT for authentic product", async function () {
-      await expect(productNFT.connect(minter).mintProductNFT(productId, retailer.address))
+      // Mint must be called by the current product owner (brand)
+      await expect(productNFT.connect(brand).mintProductNFT(productId, retailer.address))
         .to.emit(productNFT, "ProductNFTMinted");
 
       expect(await productNFT.ownerOf(1)).to.equal(retailer.address);
@@ -98,14 +99,16 @@ describe("ProductNFT", function () {
     });
 
     it("Should not allow non-minter to mint", async function () {
+      // user is not the current product owner
       await expect(productNFT.connect(user).mintProductNFT(productId, retailer.address))
         .to.be.reverted;
     });
 
     it("Should not allow minting duplicate NFT for same product", async function () {
-      await productNFT.connect(minter).mintProductNFT(productId, retailer.address);
+      // first mint by brand (current owner)
+      await productNFT.connect(brand).mintProductNFT(productId, retailer.address);
       
-      await expect(productNFT.connect(minter).mintProductNFT(productId, retailer.address))
+      await expect(productNFT.connect(brand).mintProductNFT(productId, retailer.address))
         .to.be.revertedWith("NFT already exists");
     });
 
@@ -117,7 +120,7 @@ describe("ProductNFT", function () {
     });
 
     it("Should initialize transfer history on mint", async function () {
-      await productNFT.connect(minter).mintProductNFT(productId, retailer.address);
+      await productNFT.connect(brand).mintProductNFT(productId, retailer.address);
       
       const history = await productNFT.getTransferHistory(1);
       expect(history.length).to.equal(1);
@@ -128,14 +131,16 @@ describe("ProductNFT", function () {
     it("Should not allow minting when paused", async function () {
       await productNFT.pause();
       
-      await expect(productNFT.connect(minter).mintProductNFT(productId, retailer.address))
+      // mint called by current product owner (brand)
+      await expect(productNFT.connect(brand).mintProductNFT(productId, retailer.address))
         .to.be.revertedWithCustomError(productNFT, "EnforcedPause");
     });
   });
 
   describe("Transfer Restrictions", function () {
     beforeEach(async function () {
-      await productNFT.connect(minter).mintProductNFT(productId, retailer.address);
+      // mint by product owner (brand)
+      await productNFT.connect(brand).mintProductNFT(productId, retailer.address);
     });
 
     it("Should allow transfer to authorized retailer", async function () {
@@ -233,7 +238,8 @@ describe("ProductNFT", function () {
 
   describe("Royalty Management", function () {
     beforeEach(async function () {
-      await productNFT.connect(minter).mintProductNFT(productId, retailer.address);
+      // mint by product owner (brand)
+      await productNFT.connect(brand).mintProductNFT(productId, retailer.address);
     });
 
     it("Should calculate royalty correctly", async function () {
@@ -274,7 +280,8 @@ describe("ProductNFT", function () {
 
   describe("Sale Price Tracking", function () {
     beforeEach(async function () {
-      await productNFT.connect(minter).mintProductNFT(productId, retailer.address);
+      // mint by product owner (brand)
+      await productNFT.connect(brand).mintProductNFT(productId, retailer.address);
       await productNFT.grantRole(TRANSFER_VALIDATOR_ROLE, marketplace.address);
     });
 
@@ -305,7 +312,7 @@ describe("ProductNFT", function () {
 
   describe("Transfer History", function () {
     beforeEach(async function () {
-      await productNFT.connect(minter).mintProductNFT(productId, retailer.address);
+      await productNFT.connect(brand).mintProductNFT(productId, retailer.address);
     });
 
     it("Should return correct transfer history", async function () {
@@ -328,7 +335,7 @@ describe("ProductNFT", function () {
 
   describe("View Functions", function () {
     beforeEach(async function () {
-      await productNFT.connect(minter).mintProductNFT(productId, retailer.address);
+      await productNFT.connect(brand).mintProductNFT(productId, retailer.address);
     });
 
     it("Should return correct product ID for token", async function () {
@@ -387,7 +394,8 @@ describe("ProductNFT", function () {
 
   describe("Edge Cases", function () {
     it("Should handle multiple transfers correctly", async function () {
-      await productNFT.connect(minter).mintProductNFT(productId, retailer.address);
+      // mint by product owner (brand)
+      await productNFT.connect(brand).mintProductNFT(productId, retailer.address);
       
       // Disable restrictions for easier testing
       await productNFT.setTransferRestrictions(false);
@@ -402,7 +410,8 @@ describe("ProductNFT", function () {
     });
 
     it("Should handle safe transfer with restrictions", async function () {
-      await productNFT.connect(minter).mintProductNFT(productId, retailer.address);
+      // mint by product owner (brand)
+      await productNFT.connect(brand).mintProductNFT(productId, retailer.address);
       await retailerRegistry.connect(brand).registerRetailer(buyer.address, "Safe Buyer");
       await retailerRegistry.connect(brand).authorizeRetailerForBrand(brand.address, buyer.address);
 
@@ -414,7 +423,8 @@ describe("ProductNFT", function () {
     });
 
     it("Should maintain state after pause/unpause cycle", async function () {
-      await productNFT.connect(minter).mintProductNFT(productId, retailer.address);
+      // mint by product owner (brand)
+      await productNFT.connect(brand).mintProductNFT(productId, retailer.address);
       
       await productNFT.pause();
       await productNFT.unpause();

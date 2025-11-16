@@ -51,6 +51,9 @@ describe("Integration Tests - Full Supply Chain Verification System", function (
     await feeDistributor.grantRole(await feeDistributor.DISTRIBUTOR_ROLE(), verificationManager.target);
     
     // Distribute tokens
+  // Ensure VerificationManager can record verifications in ProductRegistry and update retailer reputations
+  const PROD_VERIFIER_ROLE = await productRegistry.VERIFIER_ROLE();
+  await productRegistry.grantRole(PROD_VERIFIER_ROLE, verificationManager.target);
     const largeAmount = ethers.parseEther("10000");
     await authToken.transfer(verifier.address, largeAmount);
     await authToken.transfer(consumer.address, largeAmount);
@@ -60,6 +63,9 @@ describe("Integration Tests - Full Supply Chain Verification System", function (
     await retailerRegistry.registerRetailer(retailer.address, "Authorized Retailer");
     await retailerRegistry.authorizeRetailerForBrand(manufacturer.address, retailer.address);
     
+  const RTR_VERIF_ROLE = await retailerRegistry.VERIFICATION_MANAGER_ROLE();
+  await retailerRegistry.grantRole(RTR_VERIF_ROLE, verificationManager.target);
+
     // Register oracle source
     await oracleIntegration.registerSource(oracleSource.address, 0, 200); // IoT source with weight 200
   });
@@ -324,6 +330,75 @@ describe("Integration Tests - Full Supply Chain Verification System", function (
       await feeDistributor.connect(verifier).claimRewards();
       const finalBalance1 = await authToken.balanceOf(verifier.address);
       expect(finalBalance1).to.be.gt(initialBalance1);
+    });
+  });
+
+  describe("AuthToken buy/sell flows", function () {
+    it("Should allow buying AUTH with ETH from contract", async function () {
+      const buyer = ethers.Wallet.createRandom().connect(ethers.provider);
+      await owner.sendTransaction({ to: buyer.address, value: ethers.parseEther("2") });
+
+      const initialBuyerAuth = await authToken.balanceOf(buyer.address);
+      expect(initialBuyerAuth).to.equal(0);
+
+      const ethToSend = ethers.parseEther("1");
+      const contractAuthBefore = await authToken.balanceOf(authToken.target);
+
+      const tx = await authToken.connect(buyer).buyAuthWithETH({ value: ethToSend });
+      await tx.wait();
+
+      const authReceived = ethToSend * 10000n;
+      expect(await authToken.balanceOf(buyer.address)).to.equal(authReceived);
+      expect(await ethers.provider.getBalance(authToken.target)).to.equal(ethToSend);
+
+      const contractAuthAfter = await authToken.balanceOf(authToken.target);
+      expect(contractAuthAfter).to.equal(contractAuthBefore - authReceived);
+    });
+
+    it("Should allow selling AUTH for ETH when contract has ETH liquidity", async function () {
+      const seller = ethers.Wallet.createRandom().connect(ethers.provider);
+      await owner.sendTransaction({ to: seller.address, value: ethers.parseEther("1") });
+
+      const authForOneEth = ethers.parseEther("1") * 10000n;
+      await authToken.transfer(seller.address, authForOneEth);
+
+      const seedEth = ethers.parseEther("2");
+      await authToken.connect(owner).buyAuthWithETH({ value: seedEth });
+
+      const contractEthBefore = await ethers.provider.getBalance(authToken.target);
+      const contractAuthBefore = await authToken.balanceOf(authToken.target);
+      const sellerAuthBefore = await authToken.balanceOf(seller.address);
+
+      const tx = await authToken.connect(seller).sellAuthForETH(authForOneEth);
+      await tx.wait();
+
+      const expectedEth = ethers.parseEther("1");
+      const contractEthAfter = await ethers.provider.getBalance(authToken.target);
+      expect(contractEthAfter).to.equal(contractEthBefore - expectedEth);
+
+      // seller AUTH decreased, contract AUTH increased
+      const sellerAuthAfter = await authToken.balanceOf(seller.address);
+      expect(sellerAuthAfter).to.equal(sellerAuthBefore - authForOneEth);
+
+      const contractAuthAfter = await authToken.balanceOf(authToken.target);
+      expect(contractAuthAfter).to.equal(contractAuthBefore + authForOneEth);
+    });
+
+    it("Should revert selling AUTH when contract lacks ETH liquidity", async function () {
+      const poorSeller = ethers.Wallet.createRandom().connect(ethers.provider);
+      await owner.sendTransaction({ to: poorSeller.address, value: ethers.parseEther("1") });
+
+      const authAmount = ethers.parseEther("0.5") * 10000n; // 0.5 ETH worth
+      await authToken.transfer(poorSeller.address, authAmount);
+
+      // Ensure contract ETH is drained (send back to owner)
+      const contractBal = await ethers.provider.getBalance(authToken.target);
+      if (contractBal > 0n) {
+        // owner withdraws ETH from contract via admin (owner is DEFAULT_ADMIN_ROLE)
+        await authToken.connect(owner).withdrawETH(owner.address, contractBal);
+      }
+
+      await expect(authToken.connect(poorSeller).sellAuthForETH(authAmount)).to.be.revertedWith("Insufficient ETH in contract");
     });
   });
 
