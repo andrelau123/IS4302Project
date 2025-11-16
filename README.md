@@ -1,5 +1,3 @@
-[![CI](https://github.com/andrelau123/IS4302Project/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/andrelau123/IS4302Project/actions/workflows/ci.yml)
-
 # Supply Chain Authenticity Platform
 
 Blockchain-based product authentication and supply chain tracking system combating the $2.3 trillion global counterfeit market through decentralized verification, tokenized incentives, and immutable provenance records.
